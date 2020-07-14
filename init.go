@@ -1,10 +1,11 @@
 package main
 
 import (
-	"erpc/plugins/logger"
+	"erpc/config"
 	"google.golang.org/grpc/grpclog"
 )
 
 func init() {
-	grpclog.SetLoggerV2(logger.NewZapLogger())
+	logConf := config.LoggerConfig{}
+	grpclog.SetLoggerV2(logConf.NewLogger())
 }
