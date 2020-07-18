@@ -1,4 +1,4 @@
-package retcd
+package etcd
 
 import (
 	"context"

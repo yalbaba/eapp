@@ -1,4 +1,4 @@
-package retcd
+package etcd
 
 import (
 	"context"
@@ -20,7 +20,7 @@ const (
 //服务发现相关
 type etcdWatcher struct {
 	cli       *etcd.Client
-	target    string
+	target    string //格式：cluster/service
 	cancel    context.CancelFunc
 	ctx       context.Context
 	watchChan etcd.WatchChan
@@ -28,10 +28,8 @@ type etcdWatcher struct {
 
 func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 	var updates []*naming.Update
-	//注册中心第一次开启监孔
+	//注册中心第一次开启监控
 	if w.watchChan != nil {
-		//etcd.WithPrefix(), key的前缀匹配
-		//etcd.WithSerializable() 暂时未搞懂
 		resp, err := w.cli.Get(context.Background(), w.target)
 		if err != nil {
 			return nil, fmt.Errorf("%v", err)
@@ -43,6 +41,8 @@ func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 			}
 			updates = append(updates, &update)
 		}
+		//etcd.WithPrefix(), key的前缀匹配
+		//etcd.WithSerializable() 暂时未搞懂
 		opt := []etcd.OpOption{etcd.WithRev(resp.Header.Revision + 1), etcd.WithPrefix(), etcd.WithPrevKV()}
 		w.watchChan = w.cli.Watch(context.TODO(), w.target, opt...)
 		return updates, nil
@@ -96,7 +96,7 @@ func (r *etcdRegistry) Resolve(target string) (naming.Watcher, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), resolverTimeOut)
 	watcher := &etcdWatcher{
 		cli:    r.cli,
-		target: target + "/",
+		target: target,
 		ctx:    ctx,
 		cancel: cancel,
 	}
@@ -111,6 +111,7 @@ func NewEtcdRegistry(c *etcd.Client) plugins.Registry {
 }
 
 //注册服务
+//服务格式 key: cluster/service/address value: 包括服务的地址在内的其他元数据
 func (r *etcdRegistry) Register(ctx context.Context, cluster, service string, update naming.Update) (err error) {
 	var upBytes []byte
 	upBytes, err = json.Marshal(&update)
@@ -121,10 +122,10 @@ func (r *etcdRegistry) Register(ctx context.Context, cluster, service string, up
 	ctx, cancal := context.WithTimeout(context.TODO(), resolverTimeOut)
 	r.cancal = cancal
 
-	key := cluster + "/" + service + update.Addr
+	key := cluster + "/" + service + "/" + update.Addr
 	switch update.Op {
 	case naming.Add:
-		lRsp, err := r.lci.Grant(ctx, 100)
+		lRsp, err := r.lci.Grant(ctx, 100) //这个服务租约时间需要封装在配置对象中
 		if err != nil {
 			return err
 		}
@@ -133,7 +134,7 @@ func (r *etcdRegistry) Register(ctx context.Context, cluster, service string, up
 		if err != nil {
 			return fmt.Errorf("注册服务异常,err:%v", err)
 		}
-		grpclog.Infof("retcd put key:%v value:%v\n", key, string(upBytes))
+		grpclog.Infof("etcd put key:%v value:%v\n", key, string(upBytes))
 		lsRspChan, err := r.lci.KeepAlive(context.TODO(), lRsp.ID)
 		if err != nil {
 			return err

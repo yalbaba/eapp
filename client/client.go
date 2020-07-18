@@ -1,8 +1,8 @@
 package client
 
 import (
-	"erpc/plugins/retcd"
-	etcd "github.com/coreos/etcd/clientv3"
+	"erpc/plugins/etcd"
+	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
 	"sync"
 	"time"
@@ -23,6 +23,7 @@ func NewErpcClient(opts []grpc.DialOption, registerAddr string) *ErpcClient {
 	}
 }
 
+//serviceName: cluster + "/" + service
 func (c *ErpcClient) GetConn(serviceName, serverAddr string, registerAddrs []string) (*grpc.ClientConn, error) {
 	//根据service来获取现有的连接
 	c.RLock()
@@ -35,14 +36,14 @@ func (c *ErpcClient) GetConn(serviceName, serverAddr string, registerAddrs []str
 	defer c.Unlock()
 
 	//	resolver
-	ecli, err := etcd.New(etcd.Config{
+	ecli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   registerAddrs,
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
 		return nil, err
 	}
-	resolver := retcd.NewEtcdRegistry(ecli)
+	resolver := etcd.NewEtcdRegistry(ecli)
 	//	负载均衡暂时用grpc的轮询
 	balancer := grpc.RoundRobin(resolver)
 

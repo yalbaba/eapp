@@ -2,15 +2,22 @@ package server
 
 import (
 	"context"
+	"erpc/config"
 	"erpc/plugins"
-	"erpc/plugins/retcd"
+	"erpc/plugins/etcd"
 	"fmt"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/naming"
 	"net"
 	"time"
 )
+
+func init() {
+	logConf := config.LoggerConfig{}
+	grpclog.SetLoggerV2(logConf.NewLogger())
+}
 
 type ServerConfig struct {
 	Cluster       string
@@ -28,14 +35,14 @@ type ErpcServer struct {
 }
 
 func NewErpcServer(conf *ServerConfig, server grpc.Server) (*ErpcServer, error) {
-	cli, err := etcd.New(etcd.Config{
+	cli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   conf.RegisterAddrs,
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("etcd cli init error:%v", err)
 	}
-	registry := retcd.NewEtcdRegistry(cli)
+	registry := etcd.NewEtcdRegistry(cli)
 	erpc := &ErpcServer{
 		server:   server,
 		registry: registry,
