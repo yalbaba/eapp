@@ -41,13 +41,13 @@ var (
 )
 
 type ErpcServer struct {
-	server   grpc.Server
+	server   *grpc.Server
 	registry plugins.Registry
 	config   *ServerConfig
 	running  string
 }
 
-func NewErpcServer(conf *ServerConfig, server grpc.Server) (*ErpcServer, error) {
+func NewErpcServer(conf *ServerConfig, server *grpc.Server) (*ErpcServer, error) {
 	cli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   conf.RegisterAddrs,
 		DialTimeout: 5 * time.Second,
@@ -109,5 +109,9 @@ func (s *ErpcServer) Run() error {
 }
 
 func (s *ErpcServer) stop() {
-	s.server.Stop()
+	if s.server != nil {
+		s.running = ST_STOP
+		s.server.GracefulStop() //理解为安全关闭
+		time.Sleep(time.Second)
+	}
 }
