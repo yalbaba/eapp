@@ -128,7 +128,7 @@ func (r *RandomBalancer) Up(addr grpc.Address) (down func(error)) {
 }
 
 func (r *RandomBalancer) Get(ctx context.Context, opts grpc.BalancerGetOptions) (addr grpc.Address, put func(), err error) {
-	return nil, nil, nil
+	return grpc.Address{}, nil, nil
 }
 
 func (r *RandomBalancer) Notify() <-chan []grpc.Address {
