@@ -1,14 +1,15 @@
-package server
+package servers
 
 import (
-	"context"
 	"erpc/config"
+	"erpc/iservers"
+	"erpc/pb"
 	"erpc/plugins"
 	"erpc/plugins/etcd"
 	"fmt"
-	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"net"
 	"time"
@@ -17,15 +18,6 @@ import (
 func init() {
 	logConf := config.LoggerConfig{}
 	grpclog.SetLoggerV2(logConf.NewLogger())
-}
-
-type ServerConfig struct {
-	Cluster       string
-	ServiceName   string
-	ServiceAddr   string
-	RegisterAddrs []string
-	RpcHost       string
-	Port          string
 }
 
 var (
@@ -42,24 +34,32 @@ var (
 
 type ErpcServer struct {
 	server   *grpc.Server
-	registry plugins.Registry
-	config   *ServerConfig
+	registry plugins.IRegistry
+	conf     *config.ServerConfig
 	running  string
 }
 
-func NewErpcServer(conf *ServerConfig, server *grpc.Server) (*ErpcServer, error) {
-	cli, err := etcdv3.New(etcdv3.Config{
-		Endpoints:   conf.RegisterAddrs,
-		DialTimeout: 5 * time.Second,
-	})
+func NewErpcServer(conf *config.ServerConfig) (*ErpcServer, error) {
+	rgy, err := etcd.NewEtcdRegistry(conf)
 	if err != nil {
-		return nil, fmt.Errorf("etcd cli init error:%v", err)
+		return nil, err
 	}
-	registry := etcd.NewEtcdRegistry(cli)
+
+	server := grpc.NewServer(
+		//grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+		//	UnaryServerLogInterceptor(c),
+		//	grpc_ctxtags.UnaryServerInterceptor(),
+		//	grpc_recovery.UnaryServerInterceptor(),
+		//)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time: 10,
+		}),
+	)
+
 	erpc := &ErpcServer{
 		server:   server,
-		registry: registry,
-		config:   conf,
+		registry: rgy,
+		conf:     conf,
 	}
 	return erpc, nil
 }
@@ -67,10 +67,10 @@ func NewErpcServer(conf *ServerConfig, server *grpc.Server) (*ErpcServer, error)
 func (s *ErpcServer) Start() error {
 
 	//	注册服务到注册中心
-	if err := s.registry.Register(context.TODO(), s.config.Cluster, s.config.ServiceName, naming.Update{
+	if err := s.registry.Register(s.conf.Cluster, s.conf.ServiceName, naming.Update{
 		Op:       naming.Add,
-		Addr:     s.config.ServiceAddr,
-		Metadata: s.config.ServiceAddr,
+		Addr:     s.conf.ServiceAddr,
+		Metadata: s.conf.ServiceAddr,
 	}); err != nil {
 		return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
 	}
@@ -88,9 +88,9 @@ func (s *ErpcServer) Run() error {
 	//协程内捕获错误
 	errChan := make(chan error, 1)
 	go func(ch chan error) {
-		lis, err := net.Listen("tcp", net.JoinHostPort(s.config.RpcHost, s.config.Port))
+		lis, err := net.Listen("tcp", net.JoinHostPort(s.conf.RpcHost, s.conf.Port))
 		if err != nil {
-			ch <- fmt.Errorf("server start error:%v", err)
+			ch <- fmt.Errorf("servers start error:%v", err)
 		}
 
 		//	开启rpc服务
@@ -108,10 +108,16 @@ func (s *ErpcServer) Run() error {
 	}
 }
 
-func (s *ErpcServer) stop() {
+func (s *ErpcServer) Stop() {
 	if s.server != nil {
 		s.running = ST_STOP
 		s.server.GracefulStop() //理解为安全关闭
 		time.Sleep(time.Second)
 	}
+}
+
+func (s *ErpcServer) RegistService(clusterName, serviceName string, h iservers.IHandler) {
+	s.conf.Cluster = clusterName
+	s.conf.ServiceName = serviceName
+	pb.RegisterRPCServer(s.server, h)
 }

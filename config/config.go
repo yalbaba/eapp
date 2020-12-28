@@ -1,30 +1,19 @@
 package config
 
 import (
-	"erpc/plugins"
-	"erpc/plugins/etcd"
 	"erpc/plugins/logger"
-	etcdv3 "github.com/coreos/etcd/clientv3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-//后面用适配器模式实现,注册中心配置对象
-type RegistryConfig struct {
-	RegistryType string   `yaml:"registry_type"` //etcd default
-	Addr         []string `yaml:"endpoints"`
-	UserName     string   `yaml:"user_name"`
-	Pass         string   `yaml:"pass"`
-}
-
-func (conf *RegistryConfig) NewRegistry() (registry plugins.Registry, err error) {
-	cli, err := etcdv3.New(etcdv3.Config{
-		Endpoints: conf.Addr,
-		Username:  conf.UserName,
-		Password:  conf.Pass,
-	})
-	return etcd.NewEtcdRegistry(cli), nil
+type ServerConfig struct {
+	Cluster       string
+	ServiceName   string
+	ServiceAddr   string
+	RegisterAddrs []string
+	RpcHost       string
+	Port          string
 }
 
 //日志组件配置对象

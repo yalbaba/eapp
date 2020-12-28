@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"encoding/json"
+	"erpc/config"
 	"erpc/plugins"
 	"fmt"
 	etcd "github.com/coreos/etcd/clientv3"
@@ -89,30 +90,23 @@ type etcdRegistry struct {
 	cancal context.CancelFunc
 }
 
-/*
-target = cluster+/+service
-*/
-func (r *etcdRegistry) Resolve(target string) (naming.Watcher, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), resolverTimeOut)
-	watcher := &etcdWatcher{
-		cli:    r.cli,
-		target: target,
-		ctx:    ctx,
-		cancel: cancel,
+func NewEtcdRegistry(conf *config.ServerConfig) (plugins.IRegistry, error) {
+	cli, err := etcd.New(etcd.Config{
+		Endpoints:   conf.RegisterAddrs,
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("etcd cli init error:%v", err)
 	}
-	return watcher, nil
-}
-
-func NewEtcdRegistry(c *etcd.Client) plugins.Registry {
 	return &etcdRegistry{
-		cli: c,
-		lci: etcd.NewLease(c),
-	}
+		cli: cli,
+		lci: etcd.NewLease(cli),
+	}, nil
 }
 
 //注册服务
 //服务格式 key: cluster/service/address value: 包括服务的地址在内的其他元数据
-func (r *etcdRegistry) Register(ctx context.Context, cluster, service string, update naming.Update) (err error) {
+func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (err error) {
 	var upBytes []byte
 	upBytes, err = json.Marshal(&update)
 	if err != nil {
@@ -160,9 +154,22 @@ func (r *etcdRegistry) Register(ctx context.Context, cluster, service string, up
 	return nil
 }
 
-//关闭注册中心
 func (r *etcdRegistry) Close() {
 	r.cancal()
 	r.lci.Close()
 	r.cli.Close()
+}
+
+/*
+target = cluster+/+service
+*/
+func (r *etcdRegistry) Resolve(target string) (naming.Watcher, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), resolverTimeOut)
+	watcher := &etcdWatcher{
+		cli:    r.cli,
+		target: target,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	return watcher, nil
 }
