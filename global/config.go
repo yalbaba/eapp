@@ -1,4 +1,4 @@
-package config
+package global
 
 import (
 	"erpc/plugins/logger"
@@ -7,13 +7,14 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
+//总体配置，任何组件都可以使用
 type ServerConfig struct {
-	Cluster       string
-	ServiceName   string
-	ServiceAddr   string
-	RegisterAddrs []string
-	RpcHost       string
-	Port          string
+	RpcAddr       string   //本服务地址
+	RpcPort       string   //本服务端口
+	RegisterAddrs []string //注册中心地址
+	RegistryType  string   `yaml:"registry_type"` //etcd default
+	UserName      string   `yaml:"user_name"`
+	Pass          string   `yaml:"pass"`
 }
 
 //日志组件配置对象

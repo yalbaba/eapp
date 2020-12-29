@@ -43,7 +43,12 @@ func (c *ErpcClient) GetConn(serviceName, serverAddr string, registerAddrs []str
 	if err != nil {
 		return nil, err
 	}
-	resolver := etcd.NewEtcdRegistry(ecli)
+
+	resolver, err := etcd.NewEtcdRegistry(ecli)
+	if err != nil {
+		return nil, err
+	}
+
 	//	负载均衡暂时用grpc的轮询
 	balancer := grpc.RoundRobin(resolver)
 

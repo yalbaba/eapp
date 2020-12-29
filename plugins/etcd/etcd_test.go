@@ -12,6 +12,5 @@ func TestRegistry(t *testing.T) {
 		t.Error(err)
 	}
 	cli.KV.Put(context.Background(), "ytest", "yal")
-	r, _ := cli.KV.Get(context.Background(), "ytest")
-	t.Logf("jajfajfjajf %v", r.Kvs)
+	//r, _ := cli.KV.Get(context.Background(), "ytest")
 }

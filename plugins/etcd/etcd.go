@@ -3,10 +3,9 @@ package etcd
 import (
 	"context"
 	"encoding/json"
-	"erpc/config"
 	"erpc/plugins"
 	"fmt"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/naming"
@@ -20,11 +19,11 @@ const (
 
 //服务发现相关
 type etcdWatcher struct {
-	cli       *etcd.Client
+	cli       *etcdv3.Client
 	target    string //格式：cluster/service
 	cancel    context.CancelFunc
 	ctx       context.Context
-	watchChan etcd.WatchChan
+	watchChan etcdv3.WatchChan
 }
 
 func (w *etcdWatcher) Next() ([]*naming.Update, error) {
@@ -44,7 +43,7 @@ func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 		}
 		//etcd.WithPrefix(), key的前缀匹配
 		//etcd.WithSerializable() 暂时未搞懂
-		opt := []etcd.OpOption{etcd.WithRev(resp.Header.Revision + 1), etcd.WithPrefix(), etcd.WithPrevKV()}
+		opt := []etcdv3.OpOption{etcdv3.WithRev(resp.Header.Revision + 1), etcdv3.WithPrefix(), etcdv3.WithPrevKV()}
 		w.watchChan = w.cli.Watch(context.TODO(), w.target, opt...)
 		return updates, nil
 	}
@@ -62,10 +61,10 @@ func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 		var update naming.Update
 		var err error
 		switch event.Type {
-		case etcd.EventTypePut:
+		case etcdv3.EventTypePut:
 			err = json.Unmarshal(event.Kv.Value, &update)
 			update.Op = naming.Add
-		case etcd.EventTypeDelete:
+		case etcdv3.EventTypeDelete:
 			err = json.Unmarshal(event.Kv.Value, &update)
 			update.Op = naming.Delete
 		}
@@ -83,51 +82,45 @@ func (w *etcdWatcher) Close() {
 	w.cancel()
 }
 
-//注册中心相关
+//注册中心对象
 type etcdRegistry struct {
-	cli    *etcd.Client
-	lci    etcd.Lease
+	cli    *etcdv3.Client
+	lci    etcdv3.Lease
 	cancal context.CancelFunc
 }
 
-func NewEtcdRegistry(conf *config.ServerConfig) (plugins.IRegistry, error) {
-	cli, err := etcd.New(etcd.Config{
-		Endpoints:   conf.RegisterAddrs,
-		DialTimeout: 5 * time.Second,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("etcd cli init error:%v", err)
-	}
+func NewEtcdRegistry(cli *etcdv3.Client) (plugins.IRegistry, error) {
 	return &etcdRegistry{
 		cli: cli,
-		lci: etcd.NewLease(cli),
+		lci: etcdv3.NewLease(cli),
 	}, nil
 }
 
 //注册服务
-//服务格式 key: cluster/service/address value: 包括服务的地址在内的其他元数据
+//服务格式 key: /cluster/service/address value: 包括服务的地址在内的其他元数据
 func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (err error) {
 	var upBytes []byte
 	upBytes, err = json.Marshal(&update)
 	if err != nil {
-		status.Error(codes.InvalidArgument, err.Error())
+		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	ctx, cancal := context.WithTimeout(context.TODO(), resolverTimeOut)
 	r.cancal = cancal
 
-	key := cluster + "/" + service + "/" + update.Addr
+	key := "/" + cluster + "/" + service
 	switch update.Op {
 	case naming.Add:
-		lRsp, err := r.lci.Grant(ctx, 100) //这个服务租约时间需要封装在配置对象中
+		lRsp, err := r.lci.Grant(ctx, 100) // todo 这个服务租约时间需要封装在配置对象中
 		if err != nil {
 			return err
 		}
-		opts := []etcd.OpOption{etcd.WithLease(lRsp.ID)}
+		opts := []etcdv3.OpOption{etcdv3.WithLease(lRsp.ID)}
 		r.cli.KV.Put(ctx, key, string(upBytes), opts...)
 		if err != nil {
 			return fmt.Errorf("注册服务异常,err:%v", err)
 		}
+
 		grpclog.Infof("etcd put key:%v value:%v\n", key, string(upBytes))
 		lsRspChan, err := r.lci.KeepAlive(context.TODO(), lRsp.ID)
 		if err != nil {
@@ -161,7 +154,7 @@ func (r *etcdRegistry) Close() {
 }
 
 /*
-target = cluster+/+service
+target = /cluster+/+service
 */
 func (r *etcdRegistry) Resolve(target string) (naming.Watcher, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), resolverTimeOut)

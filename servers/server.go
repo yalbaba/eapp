@@ -1,12 +1,13 @@
 package servers
 
 import (
-	"erpc/config"
+	"erpc/global"
 	"erpc/iservers"
 	"erpc/pb"
 	"erpc/plugins"
 	"erpc/plugins/etcd"
 	"fmt"
+	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/keepalive"
@@ -16,7 +17,7 @@ import (
 )
 
 func init() {
-	logConf := config.LoggerConfig{}
+	logConf := global.LoggerConfig{}
 	grpclog.SetLoggerV2(logConf.NewLogger())
 }
 
@@ -35,12 +36,21 @@ var (
 type ErpcServer struct {
 	server   *grpc.Server
 	registry plugins.IRegistry
-	conf     *config.ServerConfig
+	conf     *RpcConfig
 	running  string
 }
 
-func NewErpcServer(conf *config.ServerConfig) (*ErpcServer, error) {
-	rgy, err := etcd.NewEtcdRegistry(conf)
+func NewErpcServer(conf *global.ServerConfig) (*ErpcServer, error) {
+	cli, err := etcdv3.New(etcdv3.Config{
+		Endpoints:   conf.RegisterAddrs,
+		DialTimeout: 5 * time.Second,
+		Username:    conf.UserName,
+		Password:    conf.Pass,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("etcd cli init error:%v", err)
+	}
+	rgy, err := etcd.NewEtcdRegistry(cli)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +69,7 @@ func NewErpcServer(conf *config.ServerConfig) (*ErpcServer, error) {
 	erpc := &ErpcServer{
 		server:   server,
 		registry: rgy,
-		conf:     conf,
+		conf:     NewRpcConfig(conf),
 	}
 	return erpc, nil
 }
@@ -67,12 +77,13 @@ func NewErpcServer(conf *config.ServerConfig) (*ErpcServer, error) {
 func (s *ErpcServer) Start() error {
 
 	//	注册服务到注册中心
-	if err := s.registry.Register(s.conf.Cluster, s.conf.ServiceName, naming.Update{
-		Op:       naming.Add,
-		Addr:     s.conf.ServiceAddr,
-		Metadata: s.conf.ServiceAddr,
-	}); err != nil {
-		return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
+	for key, val := range s.conf.Services {
+		if err := s.registry.Register(s.conf.Cluster, key, naming.Update{
+			Op:       naming.Add,
+			Metadata: val,
+		}); err != nil {
+			return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
+		}
 	}
 
 	if err := s.Run(); err != nil {
@@ -88,7 +99,7 @@ func (s *ErpcServer) Run() error {
 	//协程内捕获错误
 	errChan := make(chan error, 1)
 	go func(ch chan error) {
-		lis, err := net.Listen("tcp", net.JoinHostPort(s.conf.RpcHost, s.conf.Port))
+		lis, err := net.Listen("tcp", net.JoinHostPort(s.conf.RpcAddr, s.conf.RpcPort))
 		if err != nil {
 			ch <- fmt.Errorf("servers start error:%v", err)
 		}
@@ -97,6 +108,7 @@ func (s *ErpcServer) Run() error {
 		if err := s.server.Serve(lis); err != nil {
 			ch <- fmt.Errorf("rpc serve error:%v", err)
 		}
+
 	}(errChan)
 
 	select {
@@ -116,8 +128,19 @@ func (s *ErpcServer) Stop() {
 	}
 }
 
-func (s *ErpcServer) RegistService(clusterName, serviceName string, h iservers.IHandler) {
-	s.conf.Cluster = clusterName
-	s.conf.ServiceName = serviceName
+//注册rpc服务
+func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, h iservers.IHandler) error {
+
+	if cluster != "" {
+		s.conf.Cluster = cluster
+	}
+
+	if serviceName == "" {
+		return fmt.Errorf("服务名为空")
+	}
+
+	s.conf.Services[serviceName] = addrs
 	pb.RegisterRPCServer(s.server, h)
+
+	return nil
 }

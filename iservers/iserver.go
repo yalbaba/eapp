@@ -4,5 +4,5 @@ type IServer interface {
 	Start() error
 	Run() error
 	Stop()
-	RegistService(h IHandler)
+	RegistService(cluster, serviceName string, addrs []string, h IHandler) error
 }
