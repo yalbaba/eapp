@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"erpc/plugins"
+	"erpc/plugins/config"
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc/codes"
@@ -87,12 +88,20 @@ type etcdRegistry struct {
 	cli    *etcdv3.Client
 	lci    etcdv3.Lease
 	cancal context.CancelFunc
+	conf   *config.RegistryConfig
 }
 
-func NewEtcdRegistry(cli *etcdv3.Client) (plugins.IRegistry, error) {
+func NewEtcdRegistry(cli *etcdv3.Client, opts ...config.Option) (plugins.IRegistry, error) {
+	opt := &config.Options{}
+	for _, o := range opts {
+		o(opt)
+	}
 	return &etcdRegistry{
 		cli: cli,
 		lci: etcdv3.NewLease(cli),
+		conf: &config.RegistryConfig{
+			TTl: opt.TTl,
+		},
 	}, nil
 }
 
@@ -122,7 +131,7 @@ func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (
 		}
 
 		grpclog.Infof("etcd put key:%v value:%v\n", key, string(upBytes))
-		lsRspChan, err := r.lci.KeepAlive(context.TODO(), lRsp.ID)
+		lsRspChan, err := r.lci.KeepAlive(context.Background(), lRsp.ID)
 		if err != nil {
 			return err
 		}
