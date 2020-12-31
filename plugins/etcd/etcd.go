@@ -15,40 +15,27 @@ import (
 )
 
 const (
-	resolverTimeOut = 10 * time.Second
+	ResolverTimeOut = 10 * time.Second
 )
 
 //服务发现相关
 type etcdWatcher struct {
 	cli       *etcdv3.Client
-	target    string //格式：cluster/service
+	target    string //格式：/cluster/service 服务的前缀名
 	cancel    context.CancelFunc
 	ctx       context.Context
 	watchChan etcdv3.WatchChan
 }
 
 func (w *etcdWatcher) Next() ([]*naming.Update, error) {
-	var updates []*naming.Update
+
 	//注册中心第一次开启监控
-	if w.watchChan != nil {
-		resp, err := w.cli.Get(context.Background(), w.target)
-		if err != nil {
-			return nil, fmt.Errorf("%v", err)
-		}
-		for _, kv := range resp.Kvs {
-			var update naming.Update
-			if err := json.Unmarshal(kv.Value, &update); err != nil {
-				return nil, err
-			}
-			updates = append(updates, &update)
-		}
-		//etcd.WithPrefix(), key的前缀匹配
-		//etcd.WithSerializable() 暂时未搞懂
-		opt := []etcdv3.OpOption{etcdv3.WithRev(resp.Header.Revision + 1), etcdv3.WithPrefix(), etcdv3.WithPrevKV()}
-		w.watchChan = w.cli.Watch(context.TODO(), w.target, opt...)
-		return updates, nil
+	if w.watchChan == nil {
+		return w.firstNext()
 	}
-	//当发生改变，会得到watch通知
+
+	var updates []*naming.Update
+	// 开启监控后，当发生改变，会得到watch通知
 	wrsp, ok := <-w.watchChan
 	if !ok {
 		err := status.Error(codes.Unavailable, "etcd watcher closed")
@@ -75,6 +62,28 @@ func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 		updates = append(updates, &update)
 	}
 
+	return updates, nil
+}
+
+//首次开启监控
+func (w *etcdWatcher) firstNext() ([]*naming.Update, error) {
+
+	var updates []*naming.Update
+	resp, err := w.cli.Get(context.Background(), w.target)
+	if err != nil {
+		return nil, fmt.Errorf("%v", err)
+	}
+	for _, kv := range resp.Kvs {
+		var update naming.Update
+		if err := json.Unmarshal(kv.Value, &update); err != nil {
+			return nil, err
+		}
+		updates = append(updates, &update)
+	}
+
+	//etcd.WithPrefix(), key的前缀匹配
+	opt := []etcdv3.OpOption{etcdv3.WithRev(resp.Header.Revision + 1), etcdv3.WithPrefix(), etcdv3.WithPrevKV()}
+	w.watchChan = w.cli.Watch(context.TODO(), w.target, opt...)
 	return updates, nil
 }
 
@@ -114,13 +123,13 @@ func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	ctx, cancal := context.WithTimeout(context.TODO(), resolverTimeOut)
+	ctx, cancal := context.WithTimeout(context.TODO(), ResolverTimeOut)
 	r.cancal = cancal
 
-	key := "/" + cluster + "/" + service
+	key := "/" + cluster + "/" + service + "/" + update.Addr //  /cluster/servoce/ip:port
 	switch update.Op {
 	case naming.Add:
-		lRsp, err := r.lci.Grant(ctx, 100) // todo 这个服务租约时间需要封装在配置对象中
+		lRsp, err := r.lci.Grant(ctx, int64(r.conf.TTl))
 		if err != nil {
 			return err
 		}
@@ -163,10 +172,10 @@ func (r *etcdRegistry) Close() {
 }
 
 /*
-target = /cluster+/+service
+target = /cluster/service
 */
 func (r *etcdRegistry) Resolve(target string) (naming.Watcher, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), resolverTimeOut)
+	ctx, cancel := context.WithTimeout(context.Background(), ResolverTimeOut)
 	watcher := &etcdWatcher{
 		cli:    r.cli,
 		target: target,

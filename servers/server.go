@@ -78,11 +78,14 @@ func (s *ErpcServer) Start() error {
 
 	//	注册服务到注册中心
 	for key, val := range s.conf.Services {
-		if err := s.registry.Register(s.conf.Cluster, key, naming.Update{
-			Op:       naming.Add,
-			Metadata: val,
-		}); err != nil {
-			return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
+		for _, addr := range val {
+			if err := s.registry.Register(s.conf.Cluster, key, naming.Update{
+				Op:       naming.Add,
+				Addr:     addr,
+				Metadata: addr,
+			}); err != nil {
+				return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
+			}
 		}
 	}
 

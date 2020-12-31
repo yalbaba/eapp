@@ -1,9 +1,11 @@
 package client
 
 import (
+	"erpc/balancer/random"
 	"erpc/plugins/etcd"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/naming"
 	"sync"
 	"time"
 )
@@ -11,20 +13,42 @@ import (
 type ErpcClient struct {
 	sync.RWMutex
 	ConnPool     map[string]*grpc.ClientConn
-	DialOpts     []grpc.DialOption
 	RegisterAddr string
+	conf         *ClientConfig
 }
 
-func NewErpcClient(opts []grpc.DialOption, registerAddr string) *ErpcClient {
+func NewErpcClient(registerAddr string, opts ...option) *ErpcClient {
+	options := &ClientOptions{}
+	for _, o := range opts {
+		o(options)
+	}
 	return &ErpcClient{
 		ConnPool:     make(map[string]*grpc.ClientConn),
-		DialOpts:     opts,
 		RegisterAddr: registerAddr,
+		conf: &ClientConfig{
+			RpcTimeOut:      options.RpcTimeOut,
+			BalancerMod:     options.BalancerMod,
+			RegisterTimeOut: options.RegisterTimeOut,
+		},
 	}
 }
 
-//serviceName: cluster + "/" + service
-func (c *ErpcClient) GetConn(serviceName, serverAddr string, registerAddrs []string) (*grpc.ClientConn, error) {
+func (c *ErpcClient) GetBalancer(mod int8, r naming.Resolver) grpc.Balancer {
+	//	根据配置来决定使用哪种负载均衡
+	switch mod {
+	case RoundRobin:
+		return grpc.RoundRobin(r)
+	case Random:
+		return random.Random(r)
+	default:
+		//默认轮询
+		return grpc.RoundRobin(r)
+	}
+}
+
+//serviceName: "/"+ cluster + "/" + service
+func (c *ErpcClient) GetConn(serviceName string, registerAddrs []string) (*grpc.ClientConn, error) {
+
 	//根据service来获取现有的连接
 	c.RLock()
 	if conn, ok := c.ConnPool[serviceName]; ok {
@@ -35,10 +59,9 @@ func (c *ErpcClient) GetConn(serviceName, serverAddr string, registerAddrs []str
 	c.Lock()
 	defer c.Unlock()
 
-	//	resolver
 	ecli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   registerAddrs,
-		DialTimeout: 5 * time.Second,
+		DialTimeout: time.Duration(c.conf.RegisterTimeOut.Second()),
 	})
 	if err != nil {
 		return nil, err
@@ -49,12 +72,15 @@ func (c *ErpcClient) GetConn(serviceName, serverAddr string, registerAddrs []str
 		return nil, err
 	}
 
-	//	负载均衡暂时用grpc的轮询
-	balancer := grpc.RoundRobin(resolver)
+	dialOpts := []grpc.DialOption{
+		grpc.WithTimeout(time.Duration(c.conf.RpcTimeOut.Second())),
+		grpc.WithBalancer(c.GetBalancer(c.conf.BalancerMod, resolver)),
+		grpc.WithInsecure(),
+		grpc.WithBlock(),
+	}
 
-	dialOpts := []grpc.DialOption{grpc.WithTimeout(time.Second * 3), grpc.WithBalancer(balancer), grpc.WithInsecure(), grpc.WithBlock()}
-
-	conn, err := grpc.Dial(serverAddr, dialOpts...)
+	//根据负载均衡获取连接
+	conn, err := grpc.Dial(serviceName, dialOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -24,8 +24,12 @@ type RandomBalancer struct {
 	weight bool                 // 是否按照权重做负载均衡
 }
 
+func Random(r naming.Resolver) grpc.Balancer {
+	return &RandomBalancer{r: r}
+}
+
 //开启负载均衡器
-//target: cluster/service
+//target: /cluster/service
 func (r *RandomBalancer) Start(target string, config grpc.BalancerConfig) error {
 	r.Lock()
 	if r.done {
@@ -43,9 +47,11 @@ func (r *RandomBalancer) Start(target string, config grpc.BalancerConfig) error 
 	r.w = watcher
 	r.addrCh = make(chan []grpc.Address)
 	r.Unlock()
+
 	//开启监听服务地址是否发生改变
 	go func() {
 		if err := r.watchAddrUpdates(); err != nil {
+
 			return
 		}
 	}()
@@ -84,7 +90,6 @@ func (r *RandomBalancer) watchAddrUpdates() error {
 			//	不存在则加到原地址集合里
 			r.addrs = append(r.addrs, &balancer.AddrInfo{
 				Addr: addr,
-				//Weight: balancer.GetWeightByMetadata(addr.Metadata),
 			})
 		case enum.Modify:
 			if !r.weight {
@@ -119,6 +124,11 @@ func (r *RandomBalancer) watchAddrUpdates() error {
 	if r.done {
 		return grpc.ErrClientConnClosing
 	}
+	select {
+	case <-r.addrCh:
+	default:
+	}
+
 	r.addrCh <- open
 	return nil
 }
