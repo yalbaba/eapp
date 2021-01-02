@@ -129,22 +129,25 @@ func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (
 	key := "/" + cluster + "/" + service + "/" + update.Addr //  /cluster/servoce/ip:port
 	switch update.Op {
 	case naming.Add:
+		//申请一个租约
 		lRsp, err := r.lci.Grant(ctx, int64(r.conf.TTl))
 		if err != nil {
 			return err
 		}
+
+		//创建带租约的节点，保存服务信息
 		opts := []etcdv3.OpOption{etcdv3.WithLease(lRsp.ID)}
 		r.cli.KV.Put(ctx, key, string(upBytes), opts...)
 		if err != nil {
 			return fmt.Errorf("注册服务异常,err:%v", err)
 		}
 
-		grpclog.Infof("etcd put key:%v value:%v\n", key, string(upBytes))
+		// 开始续租约
 		lsRspChan, err := r.lci.KeepAlive(context.Background(), lRsp.ID)
 		if err != nil {
 			return err
 		}
-		//	续租约直到服务挂掉
+		// 续租约直到注册的服务挂掉
 		go func() {
 			for {
 				_, ok := <-lsRspChan

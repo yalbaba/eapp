@@ -79,7 +79,7 @@ func (c *ErpcClient) GetConn(serviceName string, registerAddrs []string) (*grpc.
 		grpc.WithBlock(),
 	}
 
-	//根据负载均衡获取连接
+	//根据负载均衡获取连接(负载均衡器去同一个服务名前缀下的所有节点筛选)
 	conn, err := grpc.Dial(serviceName, dialOpts...)
 	if err != nil {
 		return nil, err
