@@ -1,4 +1,4 @@
-package enum
+package _const
 
 import "google.golang.org/grpc/naming"
 

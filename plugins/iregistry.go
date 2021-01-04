@@ -5,7 +5,7 @@ import (
 )
 
 type IRegistry interface {
-	Register(cluster, service string, update naming.Update) (err error)
+	Register(service string, update naming.Update) (err error)
 	Close()
 	Resolve(target string) (naming.Watcher, error)
 }

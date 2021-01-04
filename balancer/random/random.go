@@ -3,7 +3,7 @@ package random
 import (
 	"context"
 	"erpc/balancer"
-	"erpc/enum"
+	"erpc/const"
 	"erpc/utils"
 	"errors"
 	"fmt"
@@ -96,7 +96,7 @@ func (r *random) watchAddrUpdates() error {
 			}
 			//	不存在则加到原地址集合里
 			r.addrs = append(r.addrs, balancer.AddrInfo{Addr: addr})
-		case enum.Modify:
+		case _const.Modify:
 			if !r.weight {
 				continue
 			}

@@ -116,7 +116,7 @@ func NewEtcdRegistry(cli *etcdv3.Client, opts ...config.Option) (plugins.IRegist
 
 //注册服务
 //服务格式 key: /cluster/service/address value: 包括服务的地址在内的其他元数据
-func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (err error) {
+func (r *etcdRegistry) Register(service string, update naming.Update) (err error) {
 	var upBytes []byte
 	upBytes, err = json.Marshal(&update)
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *etcdRegistry) Register(cluster, service string, update naming.Update) (
 	ctx, cancal := context.WithTimeout(context.TODO(), ResolverTimeOut)
 	r.cancal = cancal
 
-	key := "/" + cluster + "/" + service + "/" + update.Addr //  /cluster/servoce/ip:port
+	key := service + "/" + update.Addr //  /cluster/servoce/ip:port
 	switch update.Op {
 	case naming.Add:
 		//申请一个租约

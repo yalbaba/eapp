@@ -75,11 +75,15 @@ func NewErpcServer(conf *global.ServerConfig) (*ErpcServer, error) {
 }
 
 func (s *ErpcServer) Start() error {
+	// 参数校验
+	if err := s.check(); err != nil {
+		return err
+	}
 
 	//	注册服务到注册中心
 	for key, val := range s.conf.Services {
 		for _, addr := range val {
-			if err := s.registry.Register(s.conf.Cluster, key, naming.Update{
+			if err := s.registry.Register(key, naming.Update{
 				Op:       naming.Add,
 				Addr:     addr,
 				Metadata: addr,
@@ -91,6 +95,18 @@ func (s *ErpcServer) Start() error {
 
 	if err := s.Run(); err != nil {
 		return fmt.Errorf("开启rpc服务失败,err:%v", err)
+	}
+
+	return nil
+}
+
+func (s *ErpcServer) check() error {
+
+	if s.conf.Cluster == "" {
+		return fmt.Errorf("集群名不能为空")
+	}
+	if len(s.conf.Services) == 0 {
+		return fmt.Errorf("服务集合为空")
 	}
 
 	return nil
@@ -131,7 +147,7 @@ func (s *ErpcServer) Stop() {
 	}
 }
 
-//注册rpc服务
+//注册rpc服务 addrs: ip+port
 func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, h iservers.IHandler) error {
 
 	if cluster != "" {
@@ -142,7 +158,7 @@ func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, 
 		return fmt.Errorf("服务名为空")
 	}
 
-	s.conf.Services[serviceName] = addrs
+	s.conf.Services["/"+cluster+"/"+serviceName] = addrs
 	pb.RegisterRPCServer(s.server, h)
 
 	return nil
