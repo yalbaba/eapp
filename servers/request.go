@@ -1,28 +1,41 @@
 package servers
 
 import (
-	"encoding/json"
+	"context"
+	"erpc/iservers"
 	"erpc/pb"
 )
 
-type Request struct {
-	*pb.RequestContext                        //rpc请求参数
-	input              map[string]interface{} //参数
+type RequestService struct {
+	input  map[string]interface{} //参数
+	handle iservers.Handler
 }
 
-func (r *Request) GetService() string {
+func (r *RequestService) GetService() string {
 	//todo
 	return ""
 }
 
-func (r *Request) GetMethod() string {
+func (r *RequestService) GetMethod() string {
 	//todo
 	return ""
 }
 
-func (r *Request) GetForm() map[string]interface{} {
-	if r.input == nil {
-		json.Unmarshal([]byte(r.RequestContext.Input), r.input)
-	}
+func (r *RequestService) GetForm() map[string]interface{} {
 	return r.input
+}
+
+func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
+	resp, err := r.handle(ctx, r.input)
+	if err != nil {
+		return &pb.ResponseContext{
+			Status: 500,
+			Result: resp.(string),
+		}, err
+	}
+
+	return &pb.ResponseContext{
+		Status: 500,
+		Result: resp.(string),
+	}, nil
 }

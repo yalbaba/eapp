@@ -148,7 +148,7 @@ func (s *ErpcServer) Stop() {
 }
 
 //注册rpc服务 addrs: ip+port
-func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, h iservers.IHandler) error {
+func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, h iservers.Handler, input map[string]interface{}) error {
 
 	if cluster != "" {
 		s.conf.Cluster = cluster
@@ -159,7 +159,10 @@ func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, 
 	}
 
 	s.conf.Services["/"+cluster+"/"+serviceName] = addrs
-	pb.RegisterRPCServer(s.server, h)
+	pb.RegisterRPCServer(s.server, &RequestService{
+		input:  input,
+		handle: h,
+	})
 
 	return nil
 }

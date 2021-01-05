@@ -1,6 +1,6 @@
 package iservers
 
-type IRequest interface {
+type IRequestService interface {
 	GetService() string
 	GetMethod() string
 	GetForm() map[string]interface{}
