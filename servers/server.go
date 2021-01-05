@@ -6,6 +6,7 @@ import (
 	"erpc/pb"
 	"erpc/plugins"
 	"erpc/plugins/etcd"
+	"erpc/utils"
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
@@ -81,15 +82,13 @@ func (s *ErpcServer) Start() error {
 	}
 
 	//	注册服务到注册中心
-	for key, val := range s.conf.Services {
-		for _, addr := range val {
-			if err := s.registry.Register(key, naming.Update{
-				Op:       naming.Add,
-				Addr:     addr,
-				Metadata: addr,
-			}); err != nil {
-				return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
-			}
+	for key, addr := range s.conf.Services {
+		if err := s.registry.Register(key, naming.Update{
+			Op:       naming.Add,
+			Addr:     addr,
+			Metadata: addr,
+		}); err != nil {
+			return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
 		}
 	}
 
@@ -148,7 +147,7 @@ func (s *ErpcServer) Stop() {
 }
 
 //注册rpc服务 addrs: ip+port
-func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, h iservers.Handler, input map[string]interface{}) error {
+func (s *ErpcServer) RegistService(cluster, serviceName string, h iservers.Handler, input map[string]interface{}) error {
 
 	if cluster != "" {
 		s.conf.Cluster = cluster
@@ -158,7 +157,7 @@ func (s *ErpcServer) RegistService(cluster, serviceName string, addrs []string, 
 		return fmt.Errorf("服务名为空")
 	}
 
-	s.conf.Services["/"+cluster+"/"+serviceName] = addrs
+	s.conf.Services["/"+cluster+"/"+serviceName] = utils.GetRealIp()
 	pb.RegisterRPCServer(s.server, &RequestService{
 		input:  input,
 		handle: h,
