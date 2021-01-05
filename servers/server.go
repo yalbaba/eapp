@@ -157,7 +157,11 @@ func (s *ErpcServer) RegistService(cluster, serviceName string, h iservers.Handl
 		return fmt.Errorf("服务名为空")
 	}
 
-	s.conf.Services["/"+cluster+"/"+serviceName] = utils.GetRealIp()
+	iplocal, err := utils.GetRealIp()
+	if err != nil {
+		return err
+	}
+	s.conf.Services["/"+cluster+"/"+serviceName] = iplocal
 	pb.RegisterRPCServer(s.server, &RequestService{
 		input:  input,
 		handle: h,
