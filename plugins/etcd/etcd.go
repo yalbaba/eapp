@@ -126,7 +126,7 @@ func (r *etcdRegistry) Register(service string, update naming.Update) (err error
 	ctx, cancal := context.WithTimeout(context.TODO(), ResolverTimeOut)
 	r.cancal = cancal
 
-	key := service + "/" + update.Addr //  /cluster/servoce/ip:port
+	key := "/" + service + "/" + update.Addr //  /cluster/service/addr
 	switch update.Op {
 	case naming.Add:
 		//申请一个租约
