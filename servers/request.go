@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"erpc/iservers"
 	"erpc/pb"
-	"fmt"
 )
 
 type RequestService struct {
@@ -13,7 +12,6 @@ type RequestService struct {
 }
 
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
-	fmt.Println("in:::", in.Input)
 	input := make(map[string]interface{})
 	json.Unmarshal([]byte(in.Input), &input)
 	resp, err := r.handle(ctx, input)
