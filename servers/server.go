@@ -6,8 +6,8 @@ import (
 	"erpc/balancer/random"
 	"erpc/iservers"
 	"erpc/pb"
-	"erpc/plugins"
-	"erpc/plugins/etcd"
+	"erpc/registry"
+	"erpc/registry/etcd"
 	"erpc/utils"
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
@@ -38,7 +38,7 @@ var (
 
 type ErpcServer struct {
 	server   *grpc.Server
-	registry plugins.IRegistry
+	registry registry.IRegistry
 	conf     *RpcConfig
 	running  string
 	sync.RWMutex

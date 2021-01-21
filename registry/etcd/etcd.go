@@ -3,8 +3,8 @@ package etcd
 import (
 	"context"
 	"encoding/json"
-	"erpc/plugins"
-	"erpc/plugins/config"
+	"erpc/registry"
+	"erpc/registry/config"
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc/codes"
@@ -99,7 +99,7 @@ type etcdRegistry struct {
 	conf   *config.RegistryConfig
 }
 
-func NewEtcdRegistry(cli *etcdv3.Client, opts ...config.Option) (plugins.IRegistry, error) {
+func NewEtcdRegistry(cli *etcdv3.Client, opts ...config.Option) (registry.IRegistry, error) {
 	opt := &config.Options{}
 	for _, o := range opts {
 		o(opt)

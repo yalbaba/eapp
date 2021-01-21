@@ -1,7 +1,7 @@
 package global
 
 import (
-	"erpc/plugins/logger"
+	"erpc/registry/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
