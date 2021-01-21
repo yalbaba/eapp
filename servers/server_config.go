@@ -23,7 +23,7 @@ type RpcConfig struct {
 	Pass            string `yaml:"pass"`      //服务中心密码
 }
 
-func NewRpcConfig(conf *global.GlobalConfig, port string, opts ...option) (*RpcConfig, error) {
+func NewRpcConfig(conf *global.GlobalConfig, opts ...option) (*RpcConfig, error) {
 	opt := &RpcConfigOptions{}
 	for _, o := range opts {
 		o(opt)
@@ -31,7 +31,7 @@ func NewRpcConfig(conf *global.GlobalConfig, port string, opts ...option) (*RpcC
 
 	rpcConf := &RpcConfig{
 		Cluster:         conf.Cluster,
-		RpcPort:         port,
+		RpcPort:         conf.Port,
 		RegisterAddrs:   conf.RegisterAddrs,
 		RegisterTimeOut: opt.RegisterTimeOut,
 		BalancerMod:     opt.BalancerMod,
@@ -52,6 +52,10 @@ func (c *RpcConfig) check() error {
 
 	if c.RpcTimeOut == 0 {
 		c.RpcTimeOut = 3 * time.Second
+	}
+
+	if c.RpcPort == "" {
+		return fmt.Errorf("端口号不能为空")
 	}
 
 	if len(c.RegisterAddrs) == 0 {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"erpc/balancer/random"
-	"erpc/global"
 	"erpc/iservers"
 	"erpc/pb"
 	"erpc/plugins"
@@ -13,7 +12,6 @@ import (
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"net"
@@ -21,10 +19,10 @@ import (
 	"time"
 )
 
-func init() {
-	logConf := global.LoggerConfig{}
-	grpclog.SetLoggerV2(logConf.NewLogger())
-}
+//func init() {
+//	logConf := global.LoggerConfig{}
+//	grpclog.SetLoggerV2(logConf.NewLogger())
+//}
 
 var (
 	ST_RUNNING   = "running"
@@ -47,9 +45,10 @@ type ErpcServer struct {
 	connPool map[string]*grpc.ClientConn //存放rpc客户端的连接池
 	services map[string]string           //服务的地址存放集合
 	host     string
+	servers  map[string]iservers.Handler //存放服务的集合
 }
 
-func NewErpcServer(conf *RpcConfig) (iservers.IServer, error) {
+func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 
 	cli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   conf.RegisterAddrs,
@@ -88,6 +87,7 @@ func NewErpcServer(conf *RpcConfig) (iservers.IServer, error) {
 		conf:     conf,
 		services: make(map[string]string),
 		connPool: make(map[string]*grpc.ClientConn),
+		servers:  make(map[string]iservers.Handler),
 	}
 	return erpc, nil
 }
@@ -95,6 +95,7 @@ func NewErpcServer(conf *RpcConfig) (iservers.IServer, error) {
 func (s *ErpcServer) Start() error {
 
 	//	注册服务到注册中心
+	fmt.Println("s.services:::::::", s.services)
 	for key, addr := range s.services {
 		if err := s.registry.Register(key, naming.Update{
 			Op:       naming.Add,
@@ -104,6 +105,9 @@ func (s *ErpcServer) Start() error {
 			return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
 		}
 	}
+
+	// 注册服务到rpc服务器
+	pb.RegisterRPCServer(s.server, &RequestService{servers: s.servers})
 
 	if err := s.Run(); err != nil {
 		return fmt.Errorf("开启rpc服务失败,err:%v", err)
@@ -159,9 +163,8 @@ func (s *ErpcServer) RegistService(serviceName string, h iservers.Handler) error
 		return err
 	}
 	s.services[s.conf.Cluster+"/"+serviceName] = iplocal + ":" + s.conf.RpcPort
-	pb.RegisterRPCServer(s.server, &RequestService{
-		handle: h,
-	})
+
+	s.servers[serviceName] = h
 
 	return nil
 }
@@ -177,7 +180,10 @@ func (s *ErpcServer) Rpc(serviceName string, input map[string]interface{}) (inte
 
 	//进行调用
 	b, _ := json.Marshal(input)
-	return client.Request(context.Background(), &pb.RequestContext{Input: string(b)})
+	return client.Request(context.Background(), &pb.RequestContext{
+		Service: serviceName,
+		Input:   string(b),
+	})
 }
 
 func (s *ErpcServer) getService(serviceName string) (pb.RPCClient, error) {
@@ -214,6 +220,7 @@ func (e *ErpcServer) getConn(serviceName string) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 
+	fmt.Println("e.conf.BalancerMod:::", e.conf.BalancerMod)
 	dialOpts := []grpc.DialOption{
 		grpc.WithTimeout(e.conf.RpcTimeOut),
 		grpc.WithBalancer(e.getBalancer(e.conf.BalancerMod, resolver)),

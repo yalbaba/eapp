@@ -10,6 +10,7 @@ import (
 //总体配置，任何组件都可以使用
 type GlobalConfig struct {
 	Cluster       string   `yaml:"cluster"`
+	Port          string   `yaml:"port"`
 	RegisterAddrs []string `yaml:"register_addrs"` //注册中心地址
 	UserName      string   `yaml:"user_name"`
 	Pass          string   `yaml:"pass"`

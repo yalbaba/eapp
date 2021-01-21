@@ -191,19 +191,21 @@ func (r *random) Get(ctx context.Context, opts grpc.BalancerGetOptions) (addr gr
 
 	//开始进行普通随机算法获取 todo 下个版本迭代加权随机算法
 	if len(r.addrs) > 0 {
-		index := r.next
+		searched := make(map[int]bool)
 		for {
-			searched := make(map[int]bool)
-			a := r.addrs[index]
-			index = int(utils.Rand.RandStart(0, int64(len(r.addrs)-1)))
+			a := r.addrs[r.next]                                         //上一轮索引位置的地址
+			index := int(utils.Rand.RandStart(0, int64(len(r.addrs)-1))) //随机索引
 			if a.Connected {
 				addr = a.Addr
+				r.next = index
 				r.Unlock()
 				return
 			}
-			if len(searched) == len(r.addrs) && index == r.next {
+			if len(searched) == len(r.addrs) {
 				break
 			}
+			searched[r.next] = true
+			r.next = index
 		}
 	}
 
