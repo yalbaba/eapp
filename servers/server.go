@@ -172,6 +172,10 @@ func (s *ErpcServer) RegistService(serviceName string, h iservers.Handler) error
 //根据集群名和服务名进行调用
 func (s *ErpcServer) Rpc(serviceName string, input map[string]interface{}) (interface{}, error) {
 
+	if _, ok := s.servers[serviceName]; !ok {
+		return nil, fmt.Errorf("该服务未注册!")
+	}
+
 	//根据集群名和服务名获取rpc服务
 	client, err := s.getService(serviceName)
 	if err != nil {
