@@ -1,6 +1,9 @@
 package servers
 
 import (
+	"context"
+	"encoding/json"
+	"erpc/balancer/random"
 	"erpc/global"
 	"erpc/iservers"
 	"erpc/pb"
@@ -14,6 +17,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -39,12 +43,17 @@ type ErpcServer struct {
 	registry plugins.IRegistry
 	conf     *RpcConfig
 	running  string
+	sync.RWMutex
+	connPool map[string]*grpc.ClientConn //存放rpc客户端的连接池
+	services map[string]string           //服务的地址存放集合
+	host     string
 }
 
-func NewErpcServer(conf *global.ServerConfig) (*ErpcServer, error) {
+func NewErpcServer(conf *RpcConfig) (iservers.IServer, error) {
+
 	cli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   conf.RegisterAddrs,
-		DialTimeout: 5 * time.Second,
+		DialTimeout: conf.RegisterTimeOut,
 		Username:    conf.UserName,
 		Password:    conf.Pass,
 	})
@@ -63,26 +72,30 @@ func NewErpcServer(conf *global.ServerConfig) (*ErpcServer, error) {
 		//	grpc_recovery.UnaryServerInterceptor(),
 		//)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time: 10,
+			Time: 10, //todo
 		}),
 	)
 
+	iplocal, err := utils.GetRealIp()
+	if err != nil {
+		return nil, err
+	}
+
 	erpc := &ErpcServer{
+		host:     iplocal,
 		server:   server,
 		registry: rgy,
-		conf:     NewRpcConfig(conf),
+		conf:     conf,
+		services: make(map[string]string),
+		connPool: make(map[string]*grpc.ClientConn),
 	}
 	return erpc, nil
 }
 
 func (s *ErpcServer) Start() error {
-	// 参数校验
-	if err := s.check(); err != nil {
-		return err
-	}
 
 	//	注册服务到注册中心
-	for key, addr := range s.conf.Services {
+	for key, addr := range s.services {
 		if err := s.registry.Register(key, naming.Update{
 			Op:       naming.Add,
 			Addr:     addr,
@@ -99,25 +112,13 @@ func (s *ErpcServer) Start() error {
 	return nil
 }
 
-func (s *ErpcServer) check() error {
-
-	if s.conf.Cluster == "" {
-		return fmt.Errorf("集群名不能为空")
-	}
-	if len(s.conf.Services) == 0 {
-		return fmt.Errorf("服务集合为空")
-	}
-
-	return nil
-}
-
 func (s *ErpcServer) Run() error {
 
 	s.running = ST_RUNNING
 	//协程内捕获错误
 	errChan := make(chan error, 1)
 	go func(ch chan error) {
-		lis, err := net.Listen("tcp", net.JoinHostPort(s.conf.RpcAddr, s.conf.RpcPort))
+		lis, err := net.Listen("tcp", net.JoinHostPort(s.host, s.conf.RpcPort))
 		if err != nil {
 			ch <- fmt.Errorf("servers start error:%v", err)
 		}
@@ -147,11 +148,7 @@ func (s *ErpcServer) Stop() {
 }
 
 //注册rpc服务 addrs: ip+port
-func (s *ErpcServer) RegistService(cluster, serviceName string, h iservers.Handler, input map[string]interface{}) error {
-
-	if cluster != "" {
-		s.conf.Cluster = cluster
-	}
+func (s *ErpcServer) RegistService(serviceName string, h iservers.Handler) error {
 
 	if serviceName == "" {
 		return fmt.Errorf("服务名为空")
@@ -161,11 +158,89 @@ func (s *ErpcServer) RegistService(cluster, serviceName string, h iservers.Handl
 	if err != nil {
 		return err
 	}
-	s.conf.Services["/"+cluster+"/"+serviceName] = iplocal
+	s.services[s.conf.Cluster+"/"+serviceName] = iplocal + ":" + s.conf.RpcPort
 	pb.RegisterRPCServer(s.server, &RequestService{
-		input:  input,
 		handle: h,
 	})
 
 	return nil
+}
+
+//根据集群名和服务名进行调用
+func (s *ErpcServer) Rpc(serviceName string, input map[string]interface{}) (interface{}, error) {
+
+	//根据集群名和服务名获取rpc服务
+	client, err := s.getService(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	//进行调用
+	b, _ := json.Marshal(input)
+	return client.Request(context.Background(), &pb.RequestContext{Input: string(b)})
+}
+
+func (s *ErpcServer) getService(serviceName string) (pb.RPCClient, error) {
+	//先取rpc连接
+	conn, err := s.getConn("/" + s.conf.Cluster + "/" + serviceName)
+	if err != nil {
+		return nil, err
+	}
+	//由连接构建rpc服务
+	return pb.NewRPCClient(conn), nil
+}
+
+//serviceName: "/"+ cluster + "/" + service
+func (e *ErpcServer) getConn(serviceName string) (*grpc.ClientConn, error) {
+	//根据service来获取现有的连接
+	e.RLock()
+	if conn, ok := e.connPool[serviceName]; ok {
+		e.RUnlock()
+		return conn, nil
+	}
+	e.RUnlock()
+	e.Lock()
+	defer e.Unlock()
+	ecli, err := etcdv3.New(etcdv3.Config{
+		Endpoints:   e.conf.RegisterAddrs,
+		DialTimeout: e.conf.RegisterTimeOut,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resolver, err := etcd.NewEtcdRegistry(ecli)
+	if err != nil {
+		return nil, err
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithTimeout(e.conf.RpcTimeOut),
+		grpc.WithBalancer(e.getBalancer(e.conf.BalancerMod, resolver)),
+		grpc.WithInsecure(),
+		grpc.WithBlock(),
+	}
+	//根据负载均衡获取连接(负载均衡器去同一个服务名前缀下的所有节点筛选)
+	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	//defer cancel()
+	conn, err := grpc.Dial(serviceName, dialOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	e.connPool[serviceName] = conn
+	return conn, nil
+}
+
+func (e *ErpcServer) getBalancer(mod int8, r naming.Resolver) grpc.Balancer {
+	//	根据配置来决定使用哪种负载均衡
+	switch mod {
+	case RoundRobin:
+		return grpc.RoundRobin(r)
+	case Random:
+		return random.Random(r)
+	default:
+		//默认轮询
+		return grpc.RoundRobin(r)
+	}
 }

@@ -5,7 +5,7 @@ package pb;
 message RequestContext{  
     string service=1; //服务名称
     string method=2;  //请求方法,参考 http method
-    string input=4; //请求参数
+    string input=3; //请求参数
    
 }
 message ResponseContext{
@@ -16,7 +16,7 @@ message ResponseContext{
 
 
 service RPC{
-    rpc Request(RequestContext)returns(ResponseContext){}
+    rpc Request(RequestContext) returns (ResponseContext);
 }
 
 //go get -u github.com/golang/protobuf/proto-gen-go

@@ -8,11 +8,9 @@ import (
 )
 
 //总体配置，任何组件都可以使用
-type ServerConfig struct {
-	RpcAddr       string   //本服务地址
-	RpcPort       string   //本服务端口
-	RegisterAddrs []string //注册中心地址
-	RegistryType  string   `yaml:"registry_type"` //etcd default
+type GlobalConfig struct {
+	Cluster       string   `yaml:"cluster"`
+	RegisterAddrs []string `yaml:"register_addrs"` //注册中心地址
 	UserName      string   `yaml:"user_name"`
 	Pass          string   `yaml:"pass"`
 }

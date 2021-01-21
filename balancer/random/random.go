@@ -3,7 +3,6 @@ package random
 import (
 	"context"
 	"erpc/balancer"
-	"erpc/const"
 	"erpc/utils"
 	"errors"
 	"fmt"
@@ -36,6 +35,7 @@ func Random(r naming.Resolver) grpc.Balancer {
 
 //开启负载均衡器  target: /cluster/service
 func (r *random) Start(target string, config grpc.BalancerConfig) error {
+
 	r.Lock()
 	if r.done {
 		r.Unlock()
@@ -78,7 +78,7 @@ func (r *random) watchAddrUpdates() error {
 			Addr:     update.Addr,
 			Metadata: update.Metadata,
 		}
-
+		fmt.Printf("update ::%+v", update)
 		switch update.Op {
 		case naming.Add:
 			//	将新的服务地址加到注册中心里
@@ -96,17 +96,17 @@ func (r *random) watchAddrUpdates() error {
 			}
 			//	不存在则加到原地址集合里
 			r.addrs = append(r.addrs, balancer.AddrInfo{Addr: addr})
-		case _const.Modify:
-			if !r.weight {
-				continue
-			}
-			//	更新权重
-			for _, v := range r.addrs {
-				if addr.Addr == v.Addr.Addr {
-					//v.Weight = balancer.GetWeightByMetadata(addr.Metadata)
-					break
-				}
-			}
+		//case _const.Modify:
+		//	if !r.weight {
+		//		continue
+		//	}
+		//	//	更新权重
+		//	for _, v := range r.addrs {
+		//		if addr.Addr == v.Addr.Addr {
+		//			//v.Weight = balancer.GetWeightByMetadata(addr.Metadata)
+		//			break
+		//		}
+		//	}
 		case naming.Delete:
 			//	删除操作
 			for i, v := range r.addrs {

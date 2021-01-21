@@ -67,9 +67,8 @@ func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 
 //首次开启监控
 func (w *etcdWatcher) firstNext() ([]*naming.Update, error) {
-
 	var updates []*naming.Update
-	resp, err := w.cli.Get(context.Background(), w.target)
+	resp, err := w.cli.Get(context.Background(), w.target, etcdv3.WithPrefix()) //todo 忘了加
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}

@@ -2,31 +2,21 @@ package servers
 
 import (
 	"context"
+	"encoding/json"
 	"erpc/iservers"
 	"erpc/pb"
+	"fmt"
 )
 
 type RequestService struct {
-	input  map[string]interface{} //参数
 	handle iservers.Handler
 }
 
-func (r *RequestService) GetService() string {
-	//todo
-	return ""
-}
-
-func (r *RequestService) GetMethod() string {
-	//todo
-	return ""
-}
-
-func (r *RequestService) GetForm() map[string]interface{} {
-	return r.input
-}
-
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
-	resp, err := r.handle(ctx, r.input)
+	fmt.Println("in:::", in.Input)
+	input := make(map[string]interface{})
+	json.Unmarshal([]byte(in.Input), &input)
+	resp, err := r.handle(ctx, input)
 	if err != nil {
 		return &pb.ResponseContext{
 			Status: 500,
