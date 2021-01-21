@@ -51,6 +51,6 @@ func TestServer(t *testing.T) {
 }
 
 func MyHandler(ctx context.Context, input map[string]interface{}) (interface{}, error) {
-	fmt.Printf("hello world")
+	fmt.Println("执行rpc任务")
 	return fmt.Sprintf("input:::%+v", input), nil
 }
