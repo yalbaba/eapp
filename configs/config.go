@@ -26,15 +26,17 @@ type Config struct {
 
 //注册中心配置对象
 type Registry struct {
-	Addrs    []string `toml:"addrs"`
-	UserName string   `toml:"user_name"`
-	Password string   `toml:"password"`
+	Addrs           []string `toml:"addrs"`
+	UserName        string   `toml:"user_name"`
+	Password        string   `toml:"password"`
+	RegisterTimeOut int      `toml:"register_time_out"`
 }
 
 //grpc配置
 type GrpcService struct {
-	Cluster string `toml:"cluster"`
-	Port    string `toml:"port"`
+	Cluster    string `toml:"cluster"`
+	Port       string `toml:"port"`
+	RpcTimeOut int    `toml:"rpc_time_out"`
 }
 
 //日志组件配置对象

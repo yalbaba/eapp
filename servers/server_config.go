@@ -44,14 +44,6 @@ func NewRpcConfig(conf *configs.Config, opts ...option) (*RpcConfig, error) {
 }
 
 func (c *RpcConfig) check() error {
-	if c.RegisterTimeOut == 0 {
-		c.RegisterTimeOut = 5 * time.Second
-	}
-
-	if c.RpcTimeOut == 0 {
-		c.RpcTimeOut = 3 * time.Second
-	}
-
 	if c.RpcPort == "" {
 		return fmt.Errorf("端口号不能为空")
 	}
