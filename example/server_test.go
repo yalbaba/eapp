@@ -2,7 +2,7 @@ package example
 
 import (
 	"context"
-	"erpc/global"
+	"erpc/configs"
 	"erpc/servers"
 	"fmt"
 	"testing"
@@ -10,11 +10,7 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	rpcConfs, err := servers.NewRpcConfig(&global.GlobalConfig{
-		Cluster:       "yal",
-		Port:          "9091",
-		RegisterAddrs: []string{"127.0.0.1:2379"},
-	}, servers.WithTimeOut(time.Second), servers.WithBalancer(11))
+	rpcConfs, err := servers.NewRpcConfig(configs.Conf, servers.WithTimeOut(time.Second), servers.WithBalancer(11))
 	if err != nil {
 		fmt.Println("NewRpcConfig :::", err)
 		return

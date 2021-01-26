@@ -19,11 +19,6 @@ import (
 	"time"
 )
 
-//func init() {
-//	logConf := global.LoggerConfig{}
-//	grpclog.SetLoggerV2(logConf.NewLogger())
-//}
-
 var (
 	ST_RUNNING   = "running"
 	ST_STOP      = "stop"

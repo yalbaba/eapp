@@ -1,19 +1,40 @@
-package global
+package configs
 
 import (
 	"erpc/registry/logger"
+	"github.com/BurntSushi/toml"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-//总体配置，任何组件都可以使用
-type GlobalConfig struct {
-	Cluster       string   `yaml:"cluster"`
-	Port          string   `yaml:"port"`
-	RegisterAddrs []string `yaml:"register_addrs"` //注册中心地址
-	UserName      string   `yaml:"user_name"`
-	Pass          string   `yaml:"pass"`
+var (
+	Conf = &Config{}
+)
+
+func init() {
+	_, err := toml.DecodeFile("config.toml", Conf)
+	if err != nil {
+		panic(err)
+	}
+}
+
+type Config struct {
+	Registry    *Registry    `toml:"registry"`
+	GrpcService *GrpcService `toml:"grpc_service"`
+}
+
+//注册中心配置对象
+type Registry struct {
+	Addrs    []string `toml:"addrs"`
+	UserName string   `toml:"user_name"`
+	Password string   `toml:"password"`
+}
+
+//grpc配置
+type GrpcService struct {
+	Cluster string `toml:"cluster"`
+	Port    string `toml:"port"`
 }
 
 //日志组件配置对象

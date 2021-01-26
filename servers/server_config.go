@@ -1,7 +1,7 @@
 package servers
 
 import (
-	"erpc/global"
+	"erpc/configs"
 	"fmt"
 	"time"
 )
@@ -19,33 +19,31 @@ type RpcConfig struct {
 	RpcTimeOut      time.Duration
 	BalancerMod     int8
 	RegisterTimeOut time.Duration
-	UserName        string `yaml:"user_name"` //服务中心用户名
-	Pass            string `yaml:"pass"`      //服务中心密码
+	UserName        string //服务中心用户名
+	Pass            string //服务中心密码
 }
 
-func NewRpcConfig(conf *global.GlobalConfig, opts ...option) (*RpcConfig, error) {
+func NewRpcConfig(conf *configs.Config, opts ...option) (*RpcConfig, error) {
 	opt := &RpcConfigOptions{}
 	for _, o := range opts {
 		o(opt)
 	}
 
 	rpcConf := &RpcConfig{
-		Cluster:         conf.Cluster,
-		RpcPort:         conf.Port,
-		RegisterAddrs:   conf.RegisterAddrs,
+		Cluster:         conf.GrpcService.Cluster,
+		RpcPort:         conf.GrpcService.Port,
+		RegisterAddrs:   conf.Registry.Addrs,
 		RegisterTimeOut: opt.RegisterTimeOut,
 		BalancerMod:     opt.BalancerMod,
 		RpcTimeOut:      opt.RpcTimeOut,
+		UserName:        conf.Registry.UserName,
+		Pass:            conf.Registry.Password,
 	}
 
 	return rpcConf, rpcConf.check()
 }
 
 func (c *RpcConfig) check() error {
-	if c.Cluster == "" {
-		c.Cluster = "default"
-	}
-
 	if c.RegisterTimeOut == 0 {
 		c.RegisterTimeOut = 5 * time.Second
 	}

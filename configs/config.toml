@@ -1,0 +1,10 @@
+
+[registry]
+addrs = ["127.0.0.1:2379"]
+user_name = ""
+password = ""
+
+[grpc_service]
+cluster = "default"
+port = "9091"
+
