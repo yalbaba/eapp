@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 
 	resp, err := eserver.Rpc("yal-test", map[string]interface{}{
 		"id":   1,
-		"name": "123",
+		"name": "44444",
 	})
 	if err != nil {
 		fmt.Println("err::", err)
@@ -51,8 +51,8 @@ func TestServer(t *testing.T) {
 	fmt.Println("resp::::", resp)
 
 	resp2, err := eserver.Rpc("yal-test2", map[string]interface{}{
-		"id":   1,
-		"name": "123",
+		"id":   2,
+		"name": "33333",
 	})
 	if err != nil {
 		fmt.Println("err::", err)
@@ -61,7 +61,7 @@ func TestServer(t *testing.T) {
 
 	fmt.Println("resp2::::", resp2)
 
-	time.Sleep(time.Second)
+	time.Sleep(50 * time.Second)
 }
 
 func MyHandler(ctx context.Context, input map[string]interface{}) (interface{}, error) {
