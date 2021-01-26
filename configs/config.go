@@ -26,6 +26,7 @@ type Registry struct {
 	UserName        string   `toml:"user_name"`
 	Password        string   `toml:"password"`
 	RegisterTimeOut int      `toml:"register_time_out"`
+	TTl             int      `toml:"t_tl"`
 }
 
 //grpc配置

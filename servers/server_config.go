@@ -59,6 +59,7 @@ type RpcConfigOptions struct {
 	RpcTimeOut      time.Duration
 	BalancerMod     int8
 	RegisterTimeOut time.Duration
+	TTl             int
 }
 
 type option func(o *RpcConfigOptions)
@@ -78,5 +79,11 @@ func WithBalancer(mod int8) option {
 func WithRegisterTimeOut(t time.Duration) option {
 	return func(o *RpcConfigOptions) {
 		o.RegisterTimeOut = t
+	}
+}
+
+func WithTTl(ttl int) option {
+	return func(o *RpcConfigOptions) {
+		o.TTl = ttl
 	}
 }

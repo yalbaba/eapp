@@ -4,6 +4,7 @@ addrs = ["127.0.0.1:2379"]
 user_name = ""
 password = ""
 register_time_out = 5
+ttl = 8
 
 [grpc_service]
 cluster = "default"
