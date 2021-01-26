@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"erpc/balancer/random"
-	"erpc/iservers"
 	"erpc/pb"
 	"erpc/registry"
 	"erpc/registry/etcd"
@@ -40,7 +39,7 @@ type ErpcServer struct {
 	connPool map[string]*grpc.ClientConn //存放rpc客户端的连接池
 	services map[string]string           //服务的地址存放集合
 	host     string
-	servers  map[string]iservers.Handler //存放服务的集合
+	servers  map[string]Handler //存放服务的集合
 }
 
 func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
@@ -82,7 +81,7 @@ func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 		conf:     conf,
 		services: make(map[string]string),
 		connPool: make(map[string]*grpc.ClientConn),
-		servers:  make(map[string]iservers.Handler),
+		servers:  make(map[string]Handler),
 	}
 	return erpc, nil
 }
@@ -104,14 +103,14 @@ func (s *ErpcServer) Start() error {
 	// 注册服务到rpc服务器
 	pb.RegisterRPCServer(s.server, &RequestService{servers: s.servers})
 
-	if err := s.Run(); err != nil {
+	if err := s.run(); err != nil {
 		return fmt.Errorf("开启rpc服务失败,err:%v", err)
 	}
 
 	return nil
 }
 
-func (s *ErpcServer) Run() error {
+func (s *ErpcServer) run() error {
 
 	s.running = ST_RUNNING
 	//协程内捕获错误
@@ -147,7 +146,7 @@ func (s *ErpcServer) Stop() {
 }
 
 //注册rpc服务 addrs: ip+port
-func (s *ErpcServer) RegistService(serviceName string, h iservers.Handler) error {
+func (s *ErpcServer) RegistService(serviceName string, h Handler) error {
 
 	if serviceName == "" {
 		return fmt.Errorf("服务名为空")

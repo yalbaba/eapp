@@ -3,12 +3,11 @@ package servers
 import (
 	"context"
 	"encoding/json"
-	"erpc/iservers"
 	"erpc/pb"
 )
 
 type RequestService struct {
-	servers map[string]iservers.Handler
+	servers map[string]Handler
 }
 
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
