@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"erpc/registry"
-	"erpc/registry/config"
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc/codes"
@@ -95,21 +94,15 @@ func (w *etcdWatcher) Close() {
 type etcdRegistry struct {
 	cli    *etcdv3.Client
 	lci    etcdv3.Lease
-	cancal context.CancelFunc
-	conf   *config.RegistryConfig
+	cancel context.CancelFunc
+	ttl    int64
 }
 
-func NewEtcdRegistry(cli *etcdv3.Client, opts ...config.Option) (registry.IRegistry, error) {
-	opt := &config.Options{}
-	for _, o := range opts {
-		o(opt)
-	}
+func NewEtcdRegistry(cli *etcdv3.Client, ttl int64) (registry.IRegistry, error) {
 	return &etcdRegistry{
 		cli: cli,
 		lci: etcdv3.NewLease(cli),
-		conf: &config.RegistryConfig{
-			TTl: opt.TTl,
-		},
+		ttl: ttl,
 	}, nil
 }
 
@@ -122,14 +115,14 @@ func (r *etcdRegistry) Register(service string, update naming.Update) (err error
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	ctx, cancal := context.WithTimeout(context.TODO(), ResolverTimeOut)
-	r.cancal = cancal
+	ctx, c := context.WithTimeout(context.TODO(), ResolverTimeOut)
+	r.cancel = c
 
 	key := "/" + service + "/" + update.Addr //  /cluster/service/addr
 	switch update.Op {
 	case naming.Add:
 		//申请一个租约
-		lRsp, err := r.lci.Grant(ctx, int64(r.conf.TTl))
+		lRsp, err := r.lci.Grant(ctx, r.ttl)
 		if err != nil {
 			return err
 		}
@@ -168,7 +161,7 @@ func (r *etcdRegistry) Register(service string, update naming.Update) (err error
 }
 
 func (r *etcdRegistry) Close() {
-	r.cancal()
+	r.cancel()
 	r.lci.Close()
 	r.cli.Close()
 }

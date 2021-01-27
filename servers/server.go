@@ -48,12 +48,12 @@ func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 		Endpoints:   conf.RegisterAddrs,
 		DialTimeout: conf.RegisterTimeOut,
 		Username:    conf.UserName,
-		Password:    conf.Pass,
+		Password:    conf.Password,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("etcd cli init error:%v", err)
 	}
-	rgy, err := etcd.NewEtcdRegistry(cli)
+	rgy, err := etcd.NewEtcdRegistry(cli, conf.TTl)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (e *ErpcServer) getConn(serviceName string) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 
-	resolver, err := etcd.NewEtcdRegistry(ecli)
+	resolver, err := etcd.NewEtcdRegistry(ecli, e.conf.TTl)
 	if err != nil {
 		return nil, err
 	}

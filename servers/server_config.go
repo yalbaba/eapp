@@ -15,12 +15,13 @@ const (
 type RpcConfig struct {
 	Cluster         string
 	RpcPort         string
-	RegisterAddrs   []string //注册中心地址
 	RpcTimeOut      time.Duration
 	BalancerMod     int8
 	RegisterTimeOut time.Duration
-	UserName        string //服务中心用户名
-	Pass            string //服务中心密码
+	UserName        string   //注册中心用户名
+	Password        string   //注册中心密码
+	RegisterAddrs   []string //注册中心地址
+	TTl             int64
 }
 
 func NewRpcConfig(conf *configs.Config, opts ...option) (*RpcConfig, error) {
@@ -37,7 +38,8 @@ func NewRpcConfig(conf *configs.Config, opts ...option) (*RpcConfig, error) {
 		BalancerMod:     opt.BalancerMod,
 		RpcTimeOut:      opt.RpcTimeOut,
 		UserName:        conf.Registry.UserName,
-		Pass:            conf.Registry.Password,
+		Password:        conf.Registry.Password,
+		TTl:             opt.TTl,
 	}
 
 	return rpcConf, rpcConf.check()
@@ -59,7 +61,7 @@ type RpcConfigOptions struct {
 	RpcTimeOut      time.Duration
 	BalancerMod     int8
 	RegisterTimeOut time.Duration
-	TTl             int
+	TTl             int64
 }
 
 type option func(o *RpcConfigOptions)
@@ -82,7 +84,7 @@ func WithRegisterTimeOut(t time.Duration) option {
 	}
 }
 
-func WithTTl(ttl int) option {
+func WithTTl(ttl int64) option {
 	return func(o *RpcConfigOptions) {
 		o.TTl = ttl
 	}
