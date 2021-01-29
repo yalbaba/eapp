@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"erpc/balancer/random"
+	"erpc/logger"
+	"erpc/logger/zap"
 	"erpc/pb"
 	"erpc/registry"
 	"erpc/registry/etcd"
@@ -14,7 +16,10 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -40,10 +45,12 @@ type ErpcServer struct {
 	services map[string]string           //服务的地址存放集合
 	host     string
 	servers  map[string]Handler //存放服务的集合
+	log      logger.ILogger
 }
 
 func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 
+	//构建注册中心
 	cli, err := etcdv3.New(etcdv3.Config{
 		Endpoints:   conf.RegisterAddrs,
 		DialTimeout: conf.RegisterTimeOut,
@@ -53,11 +60,12 @@ func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("etcd cli init error:%v", err)
 	}
-	rgy, err := etcd.NewEtcdRegistry(cli, conf.TTl)
+	r, err := etcd.NewEtcdRegistry(cli, conf.TTl)
 	if err != nil {
 		return nil, err
 	}
 
+	//构建rpc，server
 	server := grpc.NewServer(
 		//grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 		//	UnaryServerLogInterceptor(c),
@@ -77,19 +85,24 @@ func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 	erpc := &ErpcServer{
 		host:     iplocal,
 		server:   server,
-		registry: rgy,
+		registry: r,
 		conf:     conf,
 		services: make(map[string]string),
 		connPool: make(map[string]*grpc.ClientConn),
 		servers:  make(map[string]Handler),
+		log: zap.NewDefaultLogger(&logger.LoggerConfig{
+			OutputDir: "./logs/",
+			OutFile:   "default.log",
+			ErrFile:   "default.err",
+		}),
 	}
 	return erpc, nil
 }
 
 func (s *ErpcServer) Start() error {
+	s.log.Info("rpc服务器正在启动...")
 
 	//	注册服务到注册中心
-	fmt.Println("s.services:::::::", s.services)
 	for key, addr := range s.services {
 		if err := s.registry.Register(key, naming.Update{
 			Op:       naming.Add,
@@ -104,9 +117,19 @@ func (s *ErpcServer) Start() error {
 	pb.RegisterRPCServer(s.server, &RequestService{servers: s.servers})
 
 	if err := s.run(); err != nil {
+		s.log.Error("服务器启动失败,err: ", err)
 		return fmt.Errorf("开启rpc服务失败,err:%v", err)
 	}
 
+	//监听关闭信号
+	closeCh := make(chan os.Signal)
+	signal.Notify(closeCh)
+	signal.Notify(closeCh, os.Kill, syscall.SIGUSR1, syscall.SIGUSR2)
+	s.log.Info("rpc服务器已经启动...服务器状态: ", s.running)
+	select {
+	case <-closeCh:
+		s.Stop()
+	}
 	return nil
 }
 
@@ -143,6 +166,7 @@ func (s *ErpcServer) Stop() {
 		s.server.GracefulStop() //理解为安全关闭
 		time.Sleep(time.Second)
 	}
+	s.log.Info("rpc服务器已经关闭")
 }
 
 //注册rpc服务 addrs: ip+port
@@ -156,8 +180,8 @@ func (s *ErpcServer) RegistService(serviceName string, h Handler) error {
 	if err != nil {
 		return err
 	}
-	s.services[s.conf.Cluster+"/"+serviceName] = iplocal + ":" + s.conf.RpcPort
 
+	s.services[s.conf.Cluster+"/"+serviceName] = iplocal + ":" + s.conf.RpcPort
 	s.servers[serviceName] = h
 
 	return nil
@@ -167,6 +191,7 @@ func (s *ErpcServer) RegistService(serviceName string, h Handler) error {
 func (s *ErpcServer) Rpc(serviceName string, input map[string]interface{}) (interface{}, error) {
 
 	if _, ok := s.servers[serviceName]; !ok {
+		s.log.Error("该服务未注册!")
 		return nil, fmt.Errorf("该服务未注册!")
 	}
 
@@ -178,10 +203,16 @@ func (s *ErpcServer) Rpc(serviceName string, input map[string]interface{}) (inte
 
 	//进行调用
 	b, _ := json.Marshal(input)
-	return client.Request(context.Background(), &pb.RequestContext{
+	resp, err := client.Request(context.Background(), &pb.RequestContext{
 		Service: serviceName,
 		Input:   string(b),
 	})
+	if err != nil {
+		s.log.Error("调用rpc失败,err:%v", err)
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (s *ErpcServer) getService(serviceName string) (pb.RPCClient, error) {

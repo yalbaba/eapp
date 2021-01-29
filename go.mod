@@ -13,6 +13,8 @@ require (
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
+	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
+	github.com/lestrrat-go/strftime v1.0.4 // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	go.uber.org/zap v1.15.0
 	google.golang.org/grpc v1.29.1
