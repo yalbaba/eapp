@@ -2,6 +2,8 @@ package servers
 
 import (
 	"erpc/configs"
+	"erpc/logger"
+	"erpc/logger/zap"
 	"fmt"
 	"time"
 )
@@ -22,12 +24,21 @@ type RpcConfig struct {
 	Password        string   //注册中心密码
 	RegisterAddrs   []string //注册中心地址
 	TTl             int64
+	log             logger.ILogger
 }
 
 func NewRpcConfig(conf *configs.Config, opts ...option) (*RpcConfig, error) {
 	opt := &RpcConfigOptions{}
 	for _, o := range opts {
 		o(opt)
+	}
+
+	if opt.log == nil {
+		opt.log = zap.NewDefaultLogger(&logger.LoggerConfig{
+			OutputDir: "./logs/",
+			OutFile:   "default.log",
+			ErrFile:   "default.err",
+		})
 	}
 
 	rpcConf := &RpcConfig{
@@ -40,6 +51,7 @@ func NewRpcConfig(conf *configs.Config, opts ...option) (*RpcConfig, error) {
 		UserName:        conf.Registry.UserName,
 		Password:        conf.Registry.Password,
 		TTl:             opt.TTl,
+		log:             opt.log,
 	}
 
 	return rpcConf, rpcConf.check()
@@ -62,6 +74,7 @@ type RpcConfigOptions struct {
 	BalancerMod     int8
 	RegisterTimeOut time.Duration
 	TTl             int64
+	log             logger.ILogger
 }
 
 type option func(o *RpcConfigOptions)
@@ -87,5 +100,11 @@ func WithRegisterTimeOut(t time.Duration) option {
 func WithTTl(ttl int64) option {
 	return func(o *RpcConfigOptions) {
 		o.TTl = ttl
+	}
+}
+
+func WithLogger(l logger.ILogger) option {
+	return func(o *RpcConfigOptions) {
+		o.log = l
 	}
 }

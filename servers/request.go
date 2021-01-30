@@ -11,6 +11,13 @@ type RequestService struct {
 }
 
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
+	if _, ok := r.servers[in.Service]; !ok {
+		return &pb.ResponseContext{
+			Status: 500,
+			Result: "服务未注册",
+		}, nil
+	}
+
 	input := make(map[string]interface{})
 	json.Unmarshal([]byte(in.Input), &input)
 	resp, err := r.servers[in.Service](ctx, input)

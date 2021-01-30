@@ -78,7 +78,6 @@ func (r *random) watchAddrUpdates() error {
 			Addr:     update.Addr,
 			Metadata: update.Metadata,
 		}
-		fmt.Printf("update ::%+v", update)
 		switch update.Op {
 		case naming.Add:
 			//	将新的服务地址加到注册中心里
