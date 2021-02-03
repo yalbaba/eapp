@@ -56,7 +56,7 @@ func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 		Password:    conf.Password,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("etcd cli init error:%v", err)
+		return nil, err
 	}
 	r, err := etcd.NewEtcdRegistry(cli, conf.TTl)
 	if err != nil {
@@ -94,7 +94,7 @@ func NewErpcServer(conf *RpcConfig) (*ErpcServer, error) {
 }
 
 func (s *ErpcServer) Start() error {
-	s.log.Info("rpc服务器正在启动...")
+	s.log.Info("服务器正在启动...")
 
 	//	注册服务到注册中心
 	for key, addr := range s.services {
@@ -103,7 +103,8 @@ func (s *ErpcServer) Start() error {
 			Addr:     addr,
 			Metadata: addr,
 		}); err != nil {
-			return fmt.Errorf("注册服务到注册中心失败,err:%v", err)
+			s.log.Errorf("注册服务到注册中心失败,err:%v", err)
+			return err
 		}
 	}
 
@@ -111,8 +112,8 @@ func (s *ErpcServer) Start() error {
 	pb.RegisterRPCServer(s.server, &RequestService{servers: s.servers})
 
 	if err := s.run(); err != nil {
-		s.log.Error("服务器启动失败,err: ", err)
-		return fmt.Errorf("开启rpc服务失败,err:%v", err)
+		s.log.Errorf("服务器启动失败,err:%v", err)
+		return err
 	}
 
 	//监听关闭信号
@@ -121,7 +122,7 @@ func (s *ErpcServer) Start() error {
 	signal.Notify(signalCh, os.Interrupt)
 	go func() {
 		for _ = range signalCh { //遍历捕捉到的Ctrl+C信号
-			s.log.Info("正在停止服务器...")
+			s.log.Warn("正在关闭服务器...")
 			s.Stop()
 			closeCh <- true
 		}
@@ -164,7 +165,7 @@ func (s *ErpcServer) Stop() {
 		s.server.GracefulStop() //理解为安全关闭
 		time.Sleep(time.Second)
 	}
-	s.log.Info("rpc服务器已经关闭")
+	s.log.Warn("服务器已经安全关闭...")
 }
 
 //注册rpc服务 addrs: ip+port

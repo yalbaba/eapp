@@ -2,64 +2,60 @@ package zap
 
 import (
 	"erpc/logger"
+	"fmt"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"io"
-	"os"
 	"time"
 )
 
 type DefaultLogger struct {
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 }
 
 func NewDefaultLogger(conf *logger.LoggerConfig) logger.ILogger {
 	//构建自定义日志组件（这里采用zap）
-	encoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-		MessageKey: "msg",
-		LevelKey:   "level",
-		TimeKey:    "ts",
-		//CallerKey:      "file",
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:       "time",
+		LevelKey:      "level",
+		NameKey:       "logger",
 		CallerKey:     "caller",
-		StacktraceKey: "trace",
+		MessageKey:    "msg",
+		StacktraceKey: "stacktrace",
 		LineEnding:    zapcore.DefaultLineEnding,
-		EncodeLevel:   zapcore.LowercaseLevelEncoder,
-		//EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeCaller: zapcore.ShortCallerEncoder,
+		//EncodeLevel:    zapcore.LowercaseLevelEncoder,  // 小写编码器
+		EncodeLevel: zapcore.CapitalColorLevelEncoder, //这里可以指定颜色
+		//EncodeTime:     zapcore.ISO8601TimeEncoder,       // ISO8601 UTC 时间格式
 		EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 			enc.AppendString(t.Format("2006-01-02 15:04:05"))
 		},
-		//EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeDuration: func(d time.Duration, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendInt64(int64(d) / 1000000)
-		},
-	})
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder, // 全路径编码器
+	}
 
-	// 实现两个判断日志等级的interface
-	infoLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return true
-	})
+	// 设置日志级别
+	atom := zap.NewAtomicLevelAt(zap.InfoLevel)
+	config := zap.Config{
+		Level:       atom, // 日志级别
+		Development: true, // 开发模式，堆栈跟踪
+		//Encoding:         "json",                                              // 输出格式 console 或 json
+		Encoding:         "console",                                            // 输出格式 console 或 json
+		EncoderConfig:    encoderConfig,                                        // 编码器配置
+		InitialFields:    map[string]interface{}{"serviceName": "wisdom_park"}, // 初始化字段，如：添加一个服务器名称
+		OutputPaths:      []string{"stdout"},                                   // 输出到指定文件 stdout（标准输出，正常颜色） stderr（错误输出，红色）
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	config.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder //这里可以指定颜色
+	// 构建日志
+	var err error
+	l, err := config.Build()
+	if err != nil {
+		panic(fmt.Sprintf("log 初始化失败: %v", err))
+	}
 
-	warnLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return lvl >= zapcore.WarnLevel
-	})
-
-	infoHook_1 := os.Stdout
-	infoHook_2 := getWriter(conf.OutFile, conf.OutputDir)
-	errorHook := getWriter(conf.ErrFile, conf.OutputDir)
-
-	// 最后创建具体的Logger
-	core := zapcore.NewTee(
-		zapcore.NewCore(encoder, zapcore.AddSync(infoHook_1), infoLevel),
-		zapcore.NewCore(encoder, zapcore.AddSync(infoHook_2), infoLevel),
-		zapcore.NewCore(encoder, zapcore.AddSync(errorHook), warnLevel),
-	)
-
-	// 需要传入 zap.AddCaller() 才会显示打日志点的文件名和行数, 有点小坑
-	l := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
 	return &DefaultLogger{
-		logger: l,
+		logger: l.Sugar(),
 	}
 }
 
@@ -81,29 +77,57 @@ func getWriter(filename, outPutDir string) io.Writer {
 }
 
 func (zl *DefaultLogger) Info(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.Info(args...)
+}
+
+func (zl *DefaultLogger) Infof(format string, args ...interface{}) {
+	zl.logger.Infof(format, args...)
 }
 
 func (zl *DefaultLogger) Debug(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.Debug(args...)
+}
+
+func (zl *DefaultLogger) Debugf(format string, args ...interface{}) {
+	zl.logger.Debugf(format, args...)
 }
 
 func (zl *DefaultLogger) Warn(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.Warn(args...)
+}
+
+func (zl *DefaultLogger) Warnf(format string, args ...interface{}) {
+	zl.logger.Warnf(format, args...)
 }
 
 func (zl *DefaultLogger) Error(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.Error(args...)
+}
+
+func (zl *DefaultLogger) Errorf(format string, args ...interface{}) {
+	zl.logger.Errorf(format, args...)
 }
 
 func (zl *DefaultLogger) DPanic(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.DPanic(args...)
+}
+
+func (zl *DefaultLogger) DPanicf(format string, args ...interface{}) {
+	zl.logger.DPanicf(format, args...)
 }
 
 func (zl *DefaultLogger) Panic(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.Panic(args...)
+}
+
+func (zl *DefaultLogger) Panicf(format string, args ...interface{}) {
+	zl.logger.Panicf(format, args...)
 }
 
 func (zl *DefaultLogger) Fatal(args ...interface{}) {
-	zl.logger.Sugar().Info(args...)
+	zl.logger.Fatal(args...)
+}
+
+func (zl *DefaultLogger) Fatalf(format string, args ...interface{}) {
+	zl.logger.Fatalf(format, args...)
 }
