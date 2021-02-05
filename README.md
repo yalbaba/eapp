@@ -1,2 +1,2 @@
-# erpc
-grpc with etcd for registry
+# eapp
+1、 rpc with etcd 
