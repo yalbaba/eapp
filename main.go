@@ -2,41 +2,32 @@ package main
 
 import (
 	"context"
-	"erpc/configs"
-	"erpc/servers"
+	"erpc/server"
 	"fmt"
 	"time"
 )
 
 func main() {
-	rpcConfs, err := servers.NewRpcConfig(configs.Conf, servers.WithTimeOut(time.Second), servers.WithBalancer(11))
-	if err != nil {
-		fmt.Println("NewRpcConfig :::", err)
-		return
-	}
-
-	eserver, err := servers.NewErpcServer(rpcConfs)
+	eserver, err := server.NewApp(server.WithTimeOut(time.Second),
+		server.WithBalancer(11))
 	if err != nil {
 		fmt.Println("NewErpcServer:::", err)
 		return
 	}
 
-	err = eserver.RegistService("yal-test", MyHandler)
-	if err != nil {
-		fmt.Println("RegistService:::", err)
-		return
-	}
-	err = eserver.RegistService("yal-test2", MyHandler2)
-	if err != nil {
-		fmt.Println("RegistService:::", err)
-		return
-	}
+	resp, err := eserver.Rpc("default", "yal-test", map[string]interface{}{
+		"id":   1,
+		"name": "yang",
+	})
 
-	err = eserver.Start()
-	if err != nil {
-		fmt.Println("Start:::", err)
-		return
-	}
+	fmt.Println("resp:::::::::::", resp)
+
+	resp2, err := eserver.Rpc("default", "yal-test2", map[string]interface{}{
+		"id":   2,
+		"name": "yang2",
+	})
+
+	fmt.Println("resp2::::::::::", resp2)
 }
 
 func MyHandler(ctx context.Context, input map[string]interface{}) (interface{}, error) {

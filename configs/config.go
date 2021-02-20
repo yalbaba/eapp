@@ -9,7 +9,7 @@ var (
 )
 
 func init() {
-	_, err := toml.DecodeFile("/Users/dr.yang/go/src/yalbaba/erpc/configs/config.toml", Conf)
+	_, err := toml.DecodeFile("/Users/dr.yang/go/src/yalbaba/eapp/configs/config.toml", Conf)
 	if err != nil {
 		panic(err)
 	}

@@ -1,4 +1,4 @@
-package servers
+package server
 
 import (
 	"context"
@@ -10,5 +10,5 @@ type IServer interface {
 	Start() error
 	Stop()
 	RegistService(serviceName string, h Handler) error
-	Rpc(serviceName string, input map[string]interface{}) (interface{}, error)
+	Rpc(cluster, service string, input map[string]interface{}) (interface{}, error)
 }

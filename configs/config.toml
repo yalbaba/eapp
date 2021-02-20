@@ -1,6 +1,6 @@
 
 [registry]
-addrs = ["127.0.0.1:2379"]
+addrs = ["127.0.0.1:2389"]
 user_name = ""
 password = ""
 register_time_out = 5
