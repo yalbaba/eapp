@@ -193,7 +193,7 @@ func (e *eapp) RegistService(serviceName string, h Handler) error {
 }
 
 //根据集群名和服务名进行调用
-func (e *eapp) Rpc(cluster, service string, input map[string]interface{}) (interface{}, error) {
+func (e *eapp) Rpc(cluster, service string, header map[string]interface{}, input map[string]interface{}) (interface{}, error) {
 
 	//根据集群名和服务名获取rpc服务
 	client, err := e.getService(cluster, service)
@@ -202,10 +202,12 @@ func (e *eapp) Rpc(cluster, service string, input map[string]interface{}) (inter
 	}
 
 	//进行调用
-	b, _ := json.Marshal(input)
+	params, _ := json.Marshal(input)
+	h, _ := json.Marshal(header)
 	resp, err := client.Request(context.Background(), &pb.RequestContext{
 		Service: service,
-		Input:   string(b),
+		Input:   string(params),
+		Header:  string(h),
 	})
 	if err != nil {
 		e.log.Error("调用rpc失败,err:%v", err)
