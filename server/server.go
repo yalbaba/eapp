@@ -175,9 +175,9 @@ func (e *eapp) Stop() {
 }
 
 //注册rpc服务 addrs: ip+port
-func (e *eapp) RegistService(serviceName string, h Handler) error {
+func (e *eapp) RegisterService(service string, h Handler) error {
 
-	if serviceName == "" {
+	if service == "" {
 		return fmt.Errorf("服务名为空")
 	}
 
@@ -186,8 +186,8 @@ func (e *eapp) RegistService(serviceName string, h Handler) error {
 		return err
 	}
 
-	e.services[e.conf.Cluster+"/"+serviceName] = iplocal + ":" + e.conf.RpcPort
-	e.servers[serviceName] = h
+	e.services[e.conf.Cluster+"/"+service] = iplocal + ":" + e.conf.RpcPort
+	e.servers[service] = h
 
 	return nil
 }
