@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"erpc/pb"
+	"fmt"
 )
 
 type RequestService struct {
@@ -18,8 +19,17 @@ func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*p
 		}, nil
 	}
 
+	//todo 这里可以对header进行追踪
+	header := make(map[string]string)
+	if err := json.Unmarshal([]byte(in.Header), &header); err != nil {
+		return nil, err
+	}
+	fmt.Println("这是header信息:", header)
+
 	input := make(map[string]interface{})
-	json.Unmarshal([]byte(in.Input), &input)
+	if err := json.Unmarshal([]byte(in.Input), &input); err != nil {
+		return nil, err
+	}
 	resp, err := r.servers[in.Service](ctx, input)
 	if err != nil {
 		return &pb.ResponseContext{
