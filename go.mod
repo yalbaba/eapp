@@ -18,7 +18,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	go.uber.org/zap v1.15.0
 	google.golang.org/grpc v1.29.1
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0

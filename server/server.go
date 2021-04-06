@@ -122,6 +122,7 @@ func (e *eapp) Start() error {
 		return err
 	}
 
+	e.log.Info("服务器启动成功...")
 	//监听关闭信号
 	signalCh := make(chan os.Signal, 1)
 	closeCh := make(chan bool)
