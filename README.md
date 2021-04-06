@@ -15,7 +15,7 @@
 		return fmt.Sprintf("input2:::%+v", input), nil
 	}
 
-2、配置文件配置（采用toml格式）：
+2、配置文件配置（采用toml格式,注意配置文件要放到入口函数同级的configs文件夹下）：
 
 	[registry]
 	addrs = ["127.0.0.1:2389"]
