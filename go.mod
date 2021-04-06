@@ -1,4 +1,4 @@
-module erpc
+module eapp
 
 go 1.14
 

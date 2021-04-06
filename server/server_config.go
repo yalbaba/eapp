@@ -1,9 +1,9 @@
 package server
 
 import (
-	"erpc/configs"
-	"erpc/logger"
-	"erpc/logger/zap"
+	"eapp/configs"
+	"eapp/logger"
+	"eapp/logger/zap"
 	"fmt"
 	"time"
 )

@@ -2,8 +2,8 @@ package random
 
 import (
 	"context"
-	"erpc/balancer"
-	"erpc/utils"
+	"eapp/balancer"
+	"eapp/utils"
 	"errors"
 	"fmt"
 	"google.golang.org/grpc"

@@ -2,8 +2,8 @@ package etcd
 
 import (
 	"context"
+	"eapp/registry"
 	"encoding/json"
-	"erpc/registry"
 	"fmt"
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc/codes"
