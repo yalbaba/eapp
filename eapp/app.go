@@ -2,6 +2,8 @@ package eapp
 
 import (
 	"eapp/component"
+	"eapp/component/rpc"
+	"eapp/configs"
 	"eapp/consts"
 	"eapp/logger"
 	"eapp/logger/zap"
@@ -17,6 +19,7 @@ type IApp interface {
 	Start() error
 	Stop()
 	Rpc(service string, h interface{}) error
+	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) interface{}
 }
 
 type App struct {
@@ -46,7 +49,7 @@ func NewApp(opts ...Option) IApp {
 	app := &App{
 		servers: make(map[consts.ServerType]servers.IServer),
 		conf:    conf,
-		c:       component.NewComponent(conf.Log),
+		c:       component.NewComponent(rpc.NewRpcInvoker(configs.Conf), conf.Log),
 	}
 
 	//初始化所有服务器
@@ -102,4 +105,8 @@ func (a *App) Stop() {
 	for _, server := range a.servers {
 		server.Stop()
 	}
+}
+
+func (a *App) Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) interface{} {
+	return a.c.GetRpcInvoker().Request(cluster, service, header, input, failFast)
 }

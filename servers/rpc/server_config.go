@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-const (
-	RoundRobin = iota + 10
-	Random
-)
-
 //rpc服务的配置
 type RpcConfig struct {
 	Cluster         string
