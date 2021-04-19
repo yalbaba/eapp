@@ -1,13 +1,15 @@
-package server
+package rpc
 
 import (
 	"context"
 	"eapp/balancer/random"
+	"eapp/component"
 	"eapp/configs"
-	"eapp/logger"
+	"eapp/consts"
 	"eapp/pb"
 	"eapp/registry"
 	"eapp/registry/etcd"
+	"eapp/servers"
 	"eapp/utils"
 	"encoding/json"
 	"fmt"
@@ -16,8 +18,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"net"
-	"os"
-	"os/signal"
 	"sync"
 	"time"
 )
@@ -34,7 +34,8 @@ var (
 	SRV_TP_WEB   = "web"
 )
 
-type eapp struct {
+type RpcServer struct {
+	c        component.Container
 	rpc      *grpc.Server
 	registry registry.IRegistry
 	conf     *RpcConfig
@@ -43,115 +44,99 @@ type eapp struct {
 	connPool map[string]*grpc.ClientConn //存放rpc客户端的连接池
 	services map[string]string           //服务的地址存放集合
 	host     string
-	servers  map[string]Handler //存放服务的集合
-	log      logger.ILogger
+	servers  map[string]IHandler //存放服务的集合
 }
 
-func NewApp(opts ...option) (IServer, error) {
+func NewRpcServer(c component.Container) (servers.IServer, error) {
 
-	conf, err := NewRpcConfig(configs.Conf, opts...)
+	conf, err := NewRpcConfig(configs.Conf)
 	if err != nil {
 		return nil, err
 	}
 
 	//构建注册中心
 	cli, err := etcdv3.New(etcdv3.Config{
-		Endpoints:   conf.RegisterAddrs,
-		DialTimeout: conf.RegisterTimeOut,
+		Endpoints:   conf.Endpoints,
+		DialTimeout: conf.RegisterTimeout,
 		Username:    conf.UserName,
 		Password:    conf.Password,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("连接etcd失败,err:%v", err)
 	}
-	r, err := etcd.NewEtcdRegistry(cli, conf.TTl)
-	if err != nil {
-		return nil, err
-	}
+	r := etcd.NewEtcdRegistry(cli, conf.TTl)
 
-	//构建rpc，server
+	//构建rpc，servers
 	s := grpc.NewServer(
-		//grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-		//	UnaryServerLogInterceptor(c),
-		//	grpc_ctxtags.UnaryServerInterceptor(),
-		//	grpc_recovery.UnaryServerInterceptor(),
-		//)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time: 10, //todo
+			Time: 10,
+			//grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			//	UnaryServerLogInterceptor(c),
+			//	grpc_ctxtags.UnaryServerInterceptor(),
+			//	grpc_recovery.UnaryServerInterceptor(),
+			//)),
 		}),
 	)
 
-	iplocal, err := utils.GetRealIp()
+	ip, err := utils.GetRealIp()
 	if err != nil {
 		return nil, err
 	}
 
-	e := &eapp{
-		host:     iplocal,
+	e := &RpcServer{
+		host:     ip,
 		rpc:      s,
 		registry: r,
 		conf:     conf,
 		services: make(map[string]string),
 		connPool: make(map[string]*grpc.ClientConn),
-		servers:  make(map[string]Handler),
-		log:      conf.log,
+		servers:  make(map[string]IHandler),
+		c:        c,
 	}
 	return e, nil
 }
 
-func (e *eapp) Start() error {
-	e.log.Info("服务器正在启动...")
+func (r *RpcServer) Start() error {
+	r.c.Info("Rpc服务器正在启动...")
 
 	//	注册服务到注册中心
-	for key, addr := range e.services {
-		if err := e.registry.Register(key, naming.Update{
+	for key, addr := range r.services {
+		if err := r.registry.Register(key, naming.Update{
 			Op:       naming.Add,
 			Addr:     addr,
 			Metadata: addr,
 		}); err != nil {
-			e.log.Errorf("注册服务到注册中心失败,err:%v", err)
+			r.c.Errorf("注册服务到注册中心失败,err:%v", err)
 			return err
 		}
 	}
 
 	// 注册服务到rpc服务器
-	pb.RegisterRPCServer(e.rpc, &RequestService{servers: e.servers})
+	pb.RegisterRPCServer(r.rpc, &RequestService{servers: r.servers})
 
-	if err := e.run(); err != nil {
-		e.log.Errorf("服务器启动失败,err:%v", err)
+	if err := r.run(); err != nil {
+		r.c.Errorf("服务器启动失败,err:%v", err)
 		return err
 	}
 
-	e.log.Info("服务器启动成功...")
-	//监听关闭信号
-	signalCh := make(chan os.Signal, 1)
-	closeCh := make(chan bool)
-	signal.Notify(signalCh, os.Interrupt)
-	go func() {
-		for _ = range signalCh { //遍历捕捉到的Ctrl+C信号
-			e.log.Warn("正在关闭服务器...")
-			e.Stop()
-			closeCh <- true
-		}
-	}()
-	<-closeCh //阻塞进程
+	r.c.Info("Rpc服务器启动成功...")
 
 	return nil
 }
 
-func (e *eapp) run() error {
+func (r *RpcServer) run() error {
 
-	e.running = ST_RUNNING
+	r.running = ST_RUNNING
 	//协程内捕获错误
 	errChan := make(chan error, 1)
 	go func(ch chan error) {
-		lis, err := net.Listen("tcp", net.JoinHostPort(e.host, e.conf.RpcPort))
+		lis, err := net.Listen("tcp", net.JoinHostPort(r.host, r.conf.RpcPort))
 		if err != nil {
-			ch <- fmt.Errorf("server start error:%v", err)
+			ch <- fmt.Errorf("servers start error:%v", err)
 		}
 
 		//	开启rpc服务
-		if err := e.rpc.Serve(lis); err != nil {
+		if err := r.rpc.Serve(lis); err != nil {
 			ch <- fmt.Errorf("rpc serve error:%v", err)
 		}
 
@@ -161,43 +146,46 @@ func (e *eapp) run() error {
 	case <-time.After(time.Millisecond * 500):
 		return nil
 	case err := <-errChan:
-		e.running = ST_STOP
+		r.running = ST_STOP
 		return err
 	}
 }
 
-func (e *eapp) Stop() {
-	if e.rpc != nil {
-		e.running = ST_STOP
-		e.rpc.GracefulStop() //理解为安全关闭
+func (r *RpcServer) Stop() {
+	if r.rpc != nil {
+		r.running = ST_STOP
+		r.rpc.GracefulStop() //理解为安全关闭
 		time.Sleep(time.Second)
 	}
-	e.log.Warn("服务器已经安全关闭...")
+	r.c.Warn("Rpc服务器已经安全关闭...")
 }
 
 //注册rpc服务 addrs: ip+port
-func (e *eapp) RegisterService(service string, h Handler) error {
+func (r *RpcServer) RegisterService(service string, h interface{}) error {
 
 	if service == "" {
 		return fmt.Errorf("服务名为空")
 	}
 
-	iplocal, err := utils.GetRealIp()
+	host, err := utils.GetRealIp()
 	if err != nil {
 		return err
 	}
 
-	e.services[e.conf.Cluster+"/"+service] = iplocal + ":" + e.conf.RpcPort
-	e.servers[service] = h
+	r.services[r.conf.Cluster+"/"+service] = host + ":" + r.conf.RpcPort
+	if _, ok := h.(IHandler); !ok {
+		return fmt.Errorf("服务类型错误")
+	}
+	r.servers[service] = h.(IHandler)
 
 	return nil
 }
 
 //根据集群名和服务名进行调用
-func (e *eapp) Rpc(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error) {
+func (r *RpcServer) Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error) {
 
 	//根据集群名和服务名获取rpc服务
-	client, err := e.getService(cluster, service)
+	client, err := r.getService(cluster, service)
 	if err != nil {
 		return nil, err
 	}
@@ -226,19 +214,19 @@ func (e *eapp) Rpc(cluster, service string, header map[string]string, input map[
 		grpc.FailFast(failFast))
 	grpc.WithInsecure()
 	if err != nil {
-		e.log.Error("调用rpc失败,err:%v", err)
+		r.c.Error("调用rpc失败,err:%v", err)
 		return nil, err
 	}
 
 	return resp, nil
 }
 
-func (e *eapp) getService(cluster, service string) (pb.RPCClient, error) {
+func (r *RpcServer) getService(cluster, service string) (pb.RPCClient, error) {
 	//先取rpc连接,如果没有指定集群名就获取当前server的集群名
 	if cluster == "" {
-		cluster = e.conf.Cluster
+		cluster = r.conf.Cluster
 	}
-	conn, err := e.getConn("/" + cluster + "/" + service)
+	conn, err := r.getConn("/" + cluster + "/" + service)
 	if err != nil {
 		return nil, err
 	}
@@ -246,33 +234,30 @@ func (e *eapp) getService(cluster, service string) (pb.RPCClient, error) {
 	return pb.NewRPCClient(conn), nil
 }
 
-//serviceName: "/"+ cluster + "/" + service
-func (e *eapp) getConn(serviceName string) (*grpc.ClientConn, error) {
+//serviceName: "/cluster/service"
+func (r *RpcServer) getConn(serviceName string) (*grpc.ClientConn, error) {
 	//根据service来获取现有的连接
-	e.RLock()
-	if conn, ok := e.connPool[serviceName]; ok {
-		e.RUnlock()
+	r.RLock()
+	if conn, ok := r.connPool[serviceName]; ok {
+		r.RUnlock()
 		return conn, nil
 	}
-	e.RUnlock()
-	e.Lock()
-	defer e.Unlock()
+	r.RUnlock()
+	r.Lock()
+	defer r.Unlock()
 	ecli, err := etcdv3.New(etcdv3.Config{
-		Endpoints:   e.conf.RegisterAddrs,
-		DialTimeout: e.conf.RegisterTimeOut,
+		Endpoints:   r.conf.Endpoints,
+		DialTimeout: r.conf.RegisterTimeout,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	resolver, err := etcd.NewEtcdRegistry(ecli, e.conf.TTl)
-	if err != nil {
-		return nil, err
-	}
+	resolver := etcd.NewEtcdRegistry(ecli, r.conf.TTl)
 
 	dialOpts := []grpc.DialOption{
-		grpc.WithTimeout(e.conf.RpcTimeOut),
-		grpc.WithBalancer(e.getBalancer(e.conf.BalancerMod, resolver)),
+		grpc.WithTimeout(r.conf.RpcTimeout),
+		grpc.WithBalancer(r.getBalancer(r.conf.BalanceMod, resolver)),
 		grpc.WithInsecure(),
 		grpc.WithBlock(), //表示所有的rpc调用顺序进行
 	}
@@ -284,19 +269,33 @@ func (e *eapp) getConn(serviceName string) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 
-	e.connPool[serviceName] = conn
+	r.connPool[serviceName] = conn
 	return conn, nil
 }
 
-func (e *eapp) getBalancer(mod int8, r naming.Resolver) grpc.Balancer {
-	//	根据配置来决定使用哪种负载均衡
+func (r *RpcServer) getBalancer(mod int8, lb naming.Resolver) grpc.Balancer {
 	switch mod {
 	case RoundRobin:
-		return grpc.RoundRobin(r)
+		return grpc.RoundRobin(lb)
 	case Random:
-		return random.Random(r)
+		return random.Random(lb)
 	default:
-		//默认轮询
-		return grpc.RoundRobin(r)
+		return grpc.RoundRobin(lb)
 	}
+}
+
+//适配器模式构建rpc服务器
+type rpcServerAdapter struct{}
+
+func (*rpcServerAdapter) Resolve(c component.Container) servers.IServer {
+
+	rpsServer, err := NewRpcServer(c)
+	if err != nil {
+		panic(err)
+	}
+	return rpsServer
+}
+
+func init() {
+	servers.Register(consts.RpcServer, &rpcServerAdapter{})
 }

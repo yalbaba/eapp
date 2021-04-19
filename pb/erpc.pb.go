@@ -198,7 +198,7 @@ func (c *rPCClient) Request(ctx context.Context, in *RequestContext, opts ...grp
 	return out, nil
 }
 
-// RPCServer is the server API for RPC service.
+// RPCServer is the servers API for RPC service.
 type RPCServer interface {
 	Request(context.Context, *RequestContext) (*ResponseContext, error)
 }

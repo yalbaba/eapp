@@ -6,6 +6,6 @@ import (
 
 type IRegistry interface {
 	Register(service string, update naming.Update) (err error)
-	Close()
+	Close() error
 	Resolve(target string) (naming.Watcher, error)
 }

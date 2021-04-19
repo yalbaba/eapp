@@ -18,7 +18,7 @@ const (
 )
 
 //服务发现相关
-type etcdWatcher struct {
+type EtcdWatcher struct {
 	cli       *etcdv3.Client
 	target    string //格式：/cluster/service 服务的前缀名
 	cancel    context.CancelFunc
@@ -26,7 +26,7 @@ type etcdWatcher struct {
 	watchChan etcdv3.WatchChan
 }
 
-func (w *etcdWatcher) Next() ([]*naming.Update, error) {
+func (w *EtcdWatcher) Next() ([]*naming.Update, error) {
 
 	//注册中心第一次开启监控
 	if w.watchChan == nil {
@@ -65,7 +65,7 @@ func (w *etcdWatcher) Next() ([]*naming.Update, error) {
 }
 
 //首次开启监控
-func (w *etcdWatcher) firstNext() ([]*naming.Update, error) {
+func (w *EtcdWatcher) firstNext() ([]*naming.Update, error) {
 	var updates []*naming.Update
 	resp, err := w.cli.Get(context.Background(), w.target, etcdv3.WithPrefix()) //todo 忘了加
 	if err != nil {
@@ -85,30 +85,30 @@ func (w *etcdWatcher) firstNext() ([]*naming.Update, error) {
 	return updates, nil
 }
 
-func (w *etcdWatcher) Close() {
+func (w *EtcdWatcher) Close() {
 	w.cli.Close()
 	w.cancel()
 }
 
 //注册中心对象
-type etcdRegistry struct {
+type EtcdRegistry struct {
 	cli    *etcdv3.Client
 	lci    etcdv3.Lease
 	cancel context.CancelFunc
 	ttl    int64
 }
 
-func NewEtcdRegistry(cli *etcdv3.Client, ttl int64) (registry.IRegistry, error) {
-	return &etcdRegistry{
+func NewEtcdRegistry(cli *etcdv3.Client, ttl int64) registry.IRegistry {
+	return &EtcdRegistry{
 		cli: cli,
 		lci: etcdv3.NewLease(cli),
 		ttl: ttl,
-	}, nil
+	}
 }
 
 //注册服务
-//服务格式 key: /cluster/service/address value: 包括服务的地址在内的其他元数据
-func (r *etcdRegistry) Register(service string, update naming.Update) (err error) {
+//服务格式 key: /cluster/service/192.168.0.2:9090 value: 包括服务的地址在内的其他元数据
+func (r *EtcdRegistry) Register(service string, update naming.Update) (err error) {
 	var upBytes []byte
 	upBytes, err = json.Marshal(&update)
 	if err != nil {
@@ -118,28 +118,24 @@ func (r *etcdRegistry) Register(service string, update naming.Update) (err error
 	ctx, c := context.WithTimeout(context.TODO(), ResolverTimeOut)
 	r.cancel = c
 
-	key := "/" + service + "/" + update.Addr //  /cluster/service/addr
+	key := "/" + service + "/" + update.Addr
 	switch update.Op {
 	case naming.Add:
-		//申请一个租约
 		lRsp, err := r.lci.Grant(ctx, r.ttl)
 		if err != nil {
 			return err
 		}
 
-		//创建带租约的节点，保存服务信息
 		opts := []etcdv3.OpOption{etcdv3.WithLease(lRsp.ID)}
-		r.cli.KV.Put(ctx, key, string(upBytes), opts...)
+		_, err = r.cli.KV.Put(ctx, key, string(upBytes), opts...)
 		if err != nil {
 			return fmt.Errorf("注册服务异常,err:%v", err)
 		}
 
-		// 开始续租约
 		lsRspChan, err := r.lci.KeepAlive(context.Background(), lRsp.ID)
 		if err != nil {
 			return err
 		}
-		// 续租约直到注册的服务挂掉
 		go func() {
 			for {
 				_, ok := <-lsRspChan
@@ -160,18 +156,21 @@ func (r *etcdRegistry) Register(service string, update naming.Update) (err error
 	return nil
 }
 
-func (r *etcdRegistry) Close() {
+func (r *EtcdRegistry) Close() error {
 	r.cancel()
-	r.lci.Close()
-	r.cli.Close()
+	err := r.lci.Close()
+	if err != nil {
+		return err
+	}
+	return r.cli.Close()
 }
 
 /*
 target = /cluster/service
 */
-func (r *etcdRegistry) Resolve(target string) (naming.Watcher, error) {
+func (r *EtcdRegistry) Resolve(target string) (naming.Watcher, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), ResolverTimeOut)
-	watcher := &etcdWatcher{
+	watcher := &EtcdWatcher{
 		cli:    r.cli,
 		target: target,
 		ctx:    ctx,

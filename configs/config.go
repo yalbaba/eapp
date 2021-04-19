@@ -22,16 +22,17 @@ type Config struct {
 
 //注册中心配置对象
 type Registry struct {
-	Addrs           []string `toml:"addrs"`
+	EndPoints       []string `toml:"end_points"`
 	UserName        string   `toml:"user_name"`
 	Password        string   `toml:"password"`
-	RegisterTimeOut int      `toml:"register_time_out"`
-	TTl             int      `toml:"t_tl"`
+	RegisterTimeout int      `toml:"register_timeout"`
+	TTl             int64    `toml:"ttl"`
 }
 
 //grpc配置
 type GrpcService struct {
 	Cluster    string `toml:"cluster"`
 	Port       string `toml:"port"`
-	RpcTimeOut int    `toml:"rpc_time_out"`
+	RpcTimeout int    `toml:"rpc_timeout"`
+	BalanceMod int8   `toml:"balance_mod"`
 }

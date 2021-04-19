@@ -1,13 +1,15 @@
 
 [registry]
-addrs = ["127.0.0.1:2389"]
+end_points = ["127.0.0.1:2389"]
 user_name = ""
 password = ""
-register_time_out = 5
+register_timeout = 10
 ttl = 8
 
 [grpc_service]
 cluster = "default"
 port = "9091"
-rpc_time_out = 3
+rpc_timeout = 3
+#10:无权重轮询，20:无权重随机
+balance_mod = 10
 

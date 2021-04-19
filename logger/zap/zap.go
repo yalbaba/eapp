@@ -31,19 +31,18 @@ func NewDefaultLogger(conf *logger.LoggerConfig) logger.ILogger {
 			enc.AppendString(t.Format("2006-01-02 15:04:05"))
 		},
 		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder, // 全路径编码器
+		//EncodeCaller:   zapcore.ShortCallerEncoder, // 全路径编码器(会显示zap包的运行日志)
 	}
 
 	// 设置日志级别
 	atom := zap.NewAtomicLevelAt(zap.InfoLevel)
 	config := zap.Config{
-		Level:       atom, // 日志级别
-		Development: true, // 开发模式，堆栈跟踪
-		//Encoding:         "json",                                              // 输出格式 console 或 json
-		Encoding:         "console",                                            // 输出格式 console 或 json
-		EncoderConfig:    encoderConfig,                                        // 编码器配置
-		InitialFields:    map[string]interface{}{"serviceName": "wisdom_park"}, // 初始化字段，如：添加一个服务器名称
-		OutputPaths:      []string{"stdout"},                                   // 输出到指定文件 stdout（标准输出，正常颜色） stderr（错误输出，红色）
+		Level:         atom,          // 日志级别
+		Development:   true,          // 开发模式，堆栈跟踪
+		Encoding:      "console",     // 输出格式 console 或 json
+		EncoderConfig: encoderConfig, // 编码器配置
+		//InitialFields:    map[string]interface{}{"serviceName": "wisdom_park"}, // 这里可以标识服务的名称，消息的尾巴上会打印这里的key和value
+		OutputPaths:      []string{"stdout"}, // 输出到指定文件 stdout（标准输出，正常颜色） stderr（错误输出，红色）
 		ErrorOutputPaths: []string{"stderr"},
 	}
 	config.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder //这里可以指定颜色
@@ -64,7 +63,6 @@ func getWriter(filename, outPutDir string) io.Writer {
 	// demo.log是指向最新日志的链接
 	// 保存7天内的日志，每1小时(整点)分割一次日志
 	hook, err := rotatelogs.New(
-		// 没有使用go风格反人类的format格式
 		outPutDir+filename+".%Y%m%d",
 		rotatelogs.WithLinkName(filename),
 		rotatelogs.WithMaxAge(time.Hour*24*7),

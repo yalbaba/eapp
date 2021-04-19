@@ -10,8 +10,8 @@ func GetRealIp() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 
 	if err != nil {
-		fmt.Println(err)
 		os.Exit(1)
+		return "", fmt.Errorf("%v", err)
 	}
 
 	for _, address := range addrs {

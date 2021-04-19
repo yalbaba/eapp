@@ -1,4 +1,4 @@
-package server
+package rpc
 
 import (
 	"context"
@@ -6,8 +6,12 @@ import (
 	"encoding/json"
 )
 
+type IHandler interface {
+	Handle(ctx context.Context, header map[string]string, input map[string]interface{}) (interface{}, error)
+}
+
 type RequestService struct {
-	servers map[string]Handler
+	servers map[string]IHandler
 }
 
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
@@ -27,7 +31,7 @@ func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*p
 	if err := json.Unmarshal([]byte(in.Input), &input); err != nil {
 		return nil, err
 	}
-	resp, err := r.servers[in.Service](ctx, header, input)
+	resp, err := r.servers[in.Service].Handle(ctx, header, input)
 	if err != nil {
 		return &pb.ResponseContext{
 			Status: 500,
