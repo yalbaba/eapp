@@ -224,6 +224,7 @@ func (e *eapp) Rpc(cluster, service string, header map[string]string, input map[
 		Header:  string(h),
 	},
 		grpc.FailFast(failFast))
+	grpc.WithInsecure()
 	if err != nil {
 		e.log.Error("调用rpc失败,err:%v", err)
 		return nil, err
@@ -273,7 +274,7 @@ func (e *eapp) getConn(serviceName string) (*grpc.ClientConn, error) {
 		grpc.WithTimeout(e.conf.RpcTimeOut),
 		grpc.WithBalancer(e.getBalancer(e.conf.BalancerMod, resolver)),
 		grpc.WithInsecure(),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //表示所有的rpc调用顺序进行
 	}
 	//根据负载均衡获取连接(负载均衡器去同一个服务名前缀下的所有节点筛选)
 	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
