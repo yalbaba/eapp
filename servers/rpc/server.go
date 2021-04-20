@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"eapp/component"
+	"eapp/component/rpc"
 	"eapp/configs"
 	"eapp/consts"
 	"eapp/pb"
@@ -38,7 +39,7 @@ type RpcServer struct {
 	running  string
 	services map[string]string //服务的地址存放集合
 	host     string
-	servers  map[string]IHandler //存放服务的集合
+	servers  map[string]rpc.IHandler //存放服务的集合
 }
 
 func NewRpcServer(c component.Container) (servers.IServer, error) {
@@ -83,7 +84,7 @@ func NewRpcServer(c component.Container) (servers.IServer, error) {
 		registry: r,
 		conf:     conf,
 		services: make(map[string]string),
-		servers:  make(map[string]IHandler),
+		servers:  make(map[string]rpc.IHandler),
 		c:        c,
 	}
 	return e, nil
@@ -105,7 +106,7 @@ func (r *RpcServer) Start() error {
 	}
 
 	// 注册服务到rpc服务器
-	pb.RegisterRPCServer(r.rpc, &RequestService{servers: r.servers})
+	pb.RegisterRPCServer(r.rpc, &rpc.RequestService{Servers: r.servers})
 
 	if err := r.run(); err != nil {
 		r.c.Errorf("服务器启动失败,err:%v", err)
@@ -166,10 +167,10 @@ func (r *RpcServer) RegisterService(service string, h interface{}) error {
 	}
 
 	r.services[r.conf.Cluster+"/"+service] = host + ":" + r.conf.RpcPort
-	if _, ok := h.(IHandler); !ok {
+	if _, ok := h.(rpc.IHandler); !ok {
 		return fmt.Errorf("服务类型错误")
 	}
-	r.servers[service] = h.(IHandler)
+	r.servers[service] = h.(rpc.IHandler)
 
 	return nil
 }

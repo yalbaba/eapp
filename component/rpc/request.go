@@ -4,6 +4,7 @@ import (
 	"context"
 	"eapp/pb"
 	"encoding/json"
+	"fmt"
 )
 
 type IHandler interface {
@@ -11,15 +12,15 @@ type IHandler interface {
 }
 
 type RequestService struct {
-	servers map[string]IHandler
+	Servers map[string]IHandler
 }
 
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
-	if _, ok := r.servers[in.Service]; !ok {
+	if _, ok := r.Servers[in.Service]; !ok {
 		return &pb.ResponseContext{
 			Status: 500,
 			Result: "服务未注册",
-		}, nil
+		}, fmt.Errorf("服务未注册")
 	}
 
 	header := make(map[string]string)
@@ -31,7 +32,7 @@ func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*p
 	if err := json.Unmarshal([]byte(in.Input), &input); err != nil {
 		return nil, err
 	}
-	resp, err := r.servers[in.Service].Handle(ctx, header, input)
+	resp, err := r.Servers[in.Service].Handle(ctx, header, input)
 	if err != nil {
 		return &pb.ResponseContext{
 			Status: 500,

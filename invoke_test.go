@@ -8,15 +8,18 @@ import (
 
 func TestName(t *testing.T) {
 	app := eapp.NewApp()
-	res := app.GetContainer().GetRpcInvoker().
-		Request("default",
+	res, err := app.GetContainer().GetRpcInvoker().
+		Request("",
 			"yal-test",
 			map[string]string{},
 			map[string]interface{}{
 				"id":   1,
 				"name": "yyy",
 			}, true)
-	res2 := app.GetContainer().GetRpcInvoker().
+	if err != nil {
+		app.GetContainer().Errorf("err::%v", err)
+	}
+	res2, err := app.GetContainer().GetRpcInvoker().
 		Request("default",
 			"yal-test2",
 			map[string]string{},

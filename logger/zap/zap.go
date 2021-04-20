@@ -38,7 +38,7 @@ func NewDefaultLogger(conf *logger.LoggerConfig) logger.ILogger {
 	atom := zap.NewAtomicLevelAt(zap.InfoLevel)
 	config := zap.Config{
 		Level:         atom,          // 日志级别
-		Development:   true,          // 开发模式，堆栈跟踪
+		Development:   false,         // 开发模式，堆栈跟踪
 		Encoding:      "console",     // 输出格式 console 或 json
 		EncoderConfig: encoderConfig, // 编码器配置
 		//InitialFields:    map[string]interface{}{"serviceName": "wisdom_park"}, // 这里可以标识服务的名称，消息的尾巴上会打印这里的key和value

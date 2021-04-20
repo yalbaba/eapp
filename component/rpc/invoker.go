@@ -16,7 +16,7 @@ import (
 )
 
 type RpcInvoker interface {
-	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) interface{}
+	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error)
 }
 
 type Invoker struct {
@@ -33,24 +33,24 @@ func NewRpcInvoker(conf *configs.Config) RpcInvoker {
 }
 
 //根据集群名和服务名进行调用
-func (i *Invoker) Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) interface{} {
+func (i *Invoker) Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error) {
 
 	//根据集群名和服务名获取rpc服务
 	client, err := i.getService(cluster, service)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	h, err := json.Marshal(header)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(h) == 0 {
 		h = []byte("{}")
 	}
 	bytes, err := json.Marshal(input)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(bytes) == 0 {
 		bytes = []byte("{}")
@@ -65,10 +65,10 @@ func (i *Invoker) Request(cluster, service string, header map[string]string, inp
 		grpc.FailFast(failFast))
 	grpc.WithInsecure()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return resp
+	return resp, nil
 }
 
 func (i *Invoker) getService(cluster, service string) (pb.RPCClient, error) {
