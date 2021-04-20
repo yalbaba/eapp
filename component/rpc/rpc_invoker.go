@@ -106,15 +106,14 @@ func (i *Invoker) getConn(serviceName string) (*grpc.ClientConn, error) {
 	resolver := etcd.NewEtcdRegistry(ecli, i.conf.Registry.TTl)
 
 	dialOpts := []grpc.DialOption{
-		grpc.WithTimeout(time.Duration(i.conf.GrpcService.RpcTimeout)),
 		grpc.WithBalancer(i.getBalancer(i.conf.GrpcService.BalanceMod, resolver)),
 		grpc.WithInsecure(),
 		grpc.WithBlock(), //表示所有的rpc调用顺序进行
 	}
 	//根据负载均衡获取连接(负载均衡器去同一个服务名前缀下的所有节点筛选)
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	//defer cancel()
-	conn, err := grpc.Dial(serviceName, dialOpts...)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(i.conf.GrpcService.RpcTimeout)*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, serviceName, dialOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 
 //给各个服务器使用的公共组件
 type Container interface {
+	GetRpcInvoker() rpc.RpcInvoker
 	logger.ILogger
 }
 

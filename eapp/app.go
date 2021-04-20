@@ -19,7 +19,7 @@ type IApp interface {
 	Start() error
 	Stop()
 	Rpc(service string, h interface{}) error
-	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) interface{}
+	GetContainer() component.Container
 }
 
 type App struct {
@@ -107,6 +107,6 @@ func (a *App) Stop() {
 	}
 }
 
-func (a *App) Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) interface{} {
-	return a.c.GetRpcInvoker().Request(cluster, service, header, input, failFast)
+func (a *App) GetContainer() component.Container {
+	return a.c
 }
