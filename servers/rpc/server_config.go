@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	"eapp/configs"
+	"eapp/global_config"
 	"fmt"
 	"time"
 )
@@ -19,7 +19,7 @@ type RpcConfig struct {
 	TTl             int64
 }
 
-func NewRpcConfig(globalConf *configs.Config) (*RpcConfig, error) {
+func NewRpcConfig(globalConf *global_config.Config) (*RpcConfig, error) {
 
 	rpcConf := &RpcConfig{
 		Cluster:         globalConf.GrpcService.Cluster,

@@ -35,7 +35,7 @@ func NewDefaultLogger(conf *logger.LoggerConfig) logger.ILogger {
 	}
 
 	// 设置日志级别
-	atom := zap.NewAtomicLevelAt(zap.InfoLevel)
+	atom := zap.NewAtomicLevelAt(zap.DebugLevel)
 	config := zap.Config{
 		Level:         atom,          // 日志级别
 		Development:   false,         // 开发模式，堆栈跟踪

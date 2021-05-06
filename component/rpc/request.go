@@ -7,12 +7,15 @@ import (
 	"fmt"
 )
 
-type IHandler interface {
+//---------------接口------------------
+type IRequest interface {
 	Handle(ctx context.Context, header map[string]string, input map[string]interface{}) (interface{}, error)
 }
 
+//---------------接口------------------
+
 type RequestService struct {
-	Servers map[string]IHandler
+	Servers map[string]IRequest
 }
 
 func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {

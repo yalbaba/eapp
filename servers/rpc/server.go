@@ -3,8 +3,8 @@ package rpc
 import (
 	"eapp/component"
 	"eapp/component/rpc"
-	"eapp/configs"
 	"eapp/consts"
+	"eapp/global_config"
 	"eapp/pb"
 	"eapp/registry"
 	"eapp/registry/etcd"
@@ -39,12 +39,12 @@ type RpcServer struct {
 	running  string
 	services map[string]string //服务的地址存放集合
 	host     string
-	servers  map[string]rpc.IHandler //存放服务的集合
+	servers  map[string]rpc.IRequest //存放服务的集合
 }
 
 func NewRpcServer(c component.Container) (servers.IServer, error) {
 
-	conf, err := NewRpcConfig(configs.Conf)
+	conf, err := NewRpcConfig(global_config.Conf)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +84,14 @@ func NewRpcServer(c component.Container) (servers.IServer, error) {
 		registry: r,
 		conf:     conf,
 		services: make(map[string]string),
-		servers:  make(map[string]rpc.IHandler),
+		servers:  make(map[string]rpc.IRequest),
 		c:        c,
 	}
 	return e, nil
 }
 
 func (r *RpcServer) Start() error {
-	r.c.Info("Rpc服务器正在启动...")
+	r.c.Debug("RPC服务器正在启动...")
 
 	//	注册服务到注册中心
 	for key, addr := range r.services {
@@ -113,7 +113,7 @@ func (r *RpcServer) Start() error {
 		return err
 	}
 
-	r.c.Info("Rpc服务器启动成功...")
+	r.c.Debug("RPC服务器启动成功...")
 
 	return nil
 }
@@ -158,7 +158,8 @@ func (r *RpcServer) Stop() {
 func (r *RpcServer) RegisterService(service string, h interface{}) error {
 
 	if service == "" {
-		return fmt.Errorf("服务名为空")
+		panic("服务名为空")
+		return nil
 	}
 
 	host, err := utils.GetRealIp()
@@ -167,15 +168,16 @@ func (r *RpcServer) RegisterService(service string, h interface{}) error {
 	}
 
 	r.services[r.conf.Cluster+"/"+service] = host + ":" + r.conf.RpcPort
-	if _, ok := h.(rpc.IHandler); !ok {
-		return fmt.Errorf("服务类型错误")
+	if _, ok := h.(rpc.IRequest); !ok {
+		panic("服务类型错误")
+		return nil
 	}
-	r.servers[service] = h.(rpc.IHandler)
+	r.servers[service] = h.(rpc.IRequest)
 
 	return nil
 }
 
-//适配器模式构建rpc服务器
+//适配器
 type rpcServerAdapter struct{}
 
 func (*rpcServerAdapter) Resolve(c component.Container) servers.IServer {

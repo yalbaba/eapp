@@ -1,25 +1,41 @@
-package main
+package test
 
 import (
 	"context"
+	"eapp/app"
 	"eapp/component"
 	"eapp/component/rpc"
-	"eapp/eapp"
 	"fmt"
+	"github.com/nsqio/go-nsq"
 	"testing"
 )
 
 func TestServer(t *testing.T) {
-	app := eapp.NewApp(
-		eapp.WithRpcServer(),
+	app := app.NewApp(
+		//app.WithRpcServer(),
+		app.WithMqcServer(),
 	)
 
-	err := app.Rpc("yal-test", NewHandler(app.GetContainer()))
-	if err != nil {
-		panic(err)
-	}
-	app.Rpc("yal-test2", NewHandler2(app.GetContainer()))
+	//err := app.RegisterRpcService("yal-test", NewHandler(app.GetContainer()))
+	//if err != nil {
+	//	panic(err)
+	//}
+	//app.RegisterRpcService("yal-test2", NewHandler2(app.GetContainer()))
+	app.RegisterMqcService("yangal", "cha1", NewMqcHandler(app.GetContainer()))
 	app.Start()
+}
+
+type testMqcHandler struct {
+	c component.Container
+}
+
+func NewMqcHandler(c component.Container) *testMqcHandler {
+	return &testMqcHandler{c: c}
+}
+
+func (t *testMqcHandler) HandleMessage(msg *nsq.Message) error {
+	t.c.Warn("这是消息:::::", string(msg.Body))
+	return nil
 }
 
 type testhandler struct {
@@ -30,11 +46,11 @@ type testhandler2 struct {
 	c component.Container
 }
 
-func NewHandler(c component.Container) rpc.IHandler {
+func NewHandler(c component.Container) rpc.IRequest {
 	return &testhandler{c: c}
 }
 
-func NewHandler2(c component.Container) rpc.IHandler {
+func NewHandler2(c component.Container) rpc.IRequest {
 	return &testhandler2{c: c}
 }
 

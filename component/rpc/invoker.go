@@ -3,7 +3,7 @@ package rpc
 import (
 	"context"
 	"eapp/balancer/random"
-	"eapp/configs"
+	"eapp/global_config"
 	"eapp/pb"
 	"eapp/registry/etcd"
 	"encoding/json"
@@ -15,17 +15,20 @@ import (
 	"time"
 )
 
+//---------------接口------------------
 type RpcInvoker interface {
 	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error)
 }
 
+//---------------接口------------------
+
 type Invoker struct {
-	conf *configs.Config
+	conf *global_config.Config
 	sync.RWMutex
 	connPool map[string]*grpc.ClientConn //存放rpc客户端的连接池
 }
 
-func NewRpcInvoker(conf *configs.Config) RpcInvoker {
+func NewRpcInvoker(conf *global_config.Config) RpcInvoker {
 	return &Invoker{
 		conf:     conf,
 		connPool: make(map[string]*grpc.ClientConn),

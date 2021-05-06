@@ -13,3 +13,5 @@ rpc_timeout = 5
 #10:无权重轮询，20:无权重随机
 balance_mod = 10
 
+[mqc_service]
+host = "127.0.0.1:4150"

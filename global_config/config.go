@@ -1,4 +1,4 @@
-package configs
+package global_config
 
 import (
 	"github.com/BurntSushi/toml"
@@ -9,7 +9,7 @@ var (
 )
 
 func init() {
-	_, err := toml.DecodeFile("./configs/config.toml", Conf)
+	_, err := toml.DecodeFile("configs/dev.toml", Conf)
 	if err != nil {
 		panic(err)
 	}
@@ -18,6 +18,7 @@ func init() {
 type Config struct {
 	Registry    *Registry    `toml:"registry"`
 	GrpcService *GrpcService `toml:"grpc_service"`
+	MqcService  *MqcService  `toml:"mqc_service"`
 }
 
 //注册中心配置对象
@@ -35,4 +36,9 @@ type GrpcService struct {
 	Port       string `toml:"port"`
 	RpcTimeout int    `toml:"rpc_timeout"`
 	BalanceMod int8   `toml:"balance_mod"`
+}
+
+//mqc配置
+type MqcService struct {
+	Host string `toml:"host"`
 }

@@ -11,7 +11,6 @@ const (
 	RpcServer
 	MqcServer
 	CronServer
-	NsqConsumeServer
 )
 
 func (s ServerType) String() string {
@@ -24,8 +23,6 @@ func (s ServerType) String() string {
 		return "mqc"
 	case CronServer:
 		return "cron"
-	case NsqConsumeServer:
-		return "nsq_consume"
 	}
 
 	return ""

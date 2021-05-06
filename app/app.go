@@ -1,15 +1,13 @@
-package eapp
+package app
 
 import (
 	"eapp/component"
-	"eapp/component/rpc"
-	"eapp/configs"
 	"eapp/consts"
 	"eapp/logger"
 	"eapp/logger/zap"
 	"eapp/servers"
+	_ "eapp/servers/mqc"
 	_ "eapp/servers/rpc"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -18,8 +16,9 @@ import (
 type IApp interface {
 	Start() error
 	Stop()
-	Rpc(service string, h interface{}) error
 	GetContainer() component.Container
+	RegisterRpcService(service string, sc interface{}) error
+	RegisterMqcService(topic, channel string, sc interface{}) error
 }
 
 type App struct {
@@ -46,30 +45,27 @@ func NewApp(opts ...Option) IApp {
 		})
 	}
 
-	app := &App{
-		servers: make(map[consts.ServerType]servers.IServer),
+	a := &App{
 		conf:    conf,
-		c:       component.NewComponent(rpc.NewRpcInvoker(configs.Conf), conf.Log),
+		c:       component.NewComponent(conf.Log),
+		servers: make(map[consts.ServerType]servers.IServer),
 	}
 
-	//初始化所有服务器
-	for k, v := range app.conf.ServerTypes {
-		app.Lock()
+	for k, v := range a.conf.ServerTypes {
+		a.Lock()
 		if v {
-			app.servers[k] = servers.NewServer(k, app.c)
+			a.servers[k] = servers.NewServer(k, a.c)
+			switch k {
+			case consts.RpcServer:
+				a.c.NewRpcInvoker()
+			case consts.MqcServer:
+				a.c.NewMqcProducer()
+			}
 		}
-		app.Unlock()
+		a.Unlock()
 	}
 
-	return app
-}
-
-func (a *App) Rpc(service string, h interface{}) error {
-	if a.servers[consts.RpcServer] == nil {
-		return fmt.Errorf("Rpc服务器未初始化")
-	}
-
-	return a.servers[consts.RpcServer].RegisterService(service, h)
+	return a
 }
 
 func (a *App) Start() error {
@@ -109,4 +105,19 @@ func (a *App) Stop() {
 
 func (a *App) GetContainer() component.Container {
 	return a.c
+}
+
+func (a *App) RegisterRpcService(service string, sc interface{}) error {
+	if a.servers[consts.RpcServer] == nil {
+		panic("Rpc服务器未初始化")
+	}
+
+	return a.servers[consts.RpcServer].RegisterService(service, sc)
+}
+
+func (a *App) RegisterMqcService(topic, channel string, sc interface{}) error {
+	if topic == "" || channel == "" {
+		panic("消息队列名不能为空")
+	}
+	return a.servers[consts.MqcServer].RegisterService(topic+"/"+channel, sc)
 }

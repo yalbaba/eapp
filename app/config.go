@@ -1,4 +1,4 @@
-package eapp
+package app
 
 import (
 	"eapp/consts"
@@ -15,6 +15,12 @@ type Option func(conf *AppConfigs)
 func WithRpcServer() Option {
 	return func(conf *AppConfigs) {
 		conf.ServerTypes[consts.RpcServer] = true
+	}
+}
+
+func WithMqcServer() Option {
+	return func(conf *AppConfigs) {
+		conf.ServerTypes[consts.MqcServer] = true
 	}
 }
 
