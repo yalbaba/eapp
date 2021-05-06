@@ -1,4 +1,6 @@
 # eapp
+
+## RPC服务构建示例
 以etcd为注册中心的rpc服务器项目
 
 1、编写自己的handler：
@@ -44,18 +46,18 @@
 		eapp.WithRpcServer(),
 	)
 
-	err := app.Rpc("yal-test", &testhandler{})
+	err := app.RegisterRpcService("yal-test", &testhandler{})
 	if err != nil {
 		panic(err)
 	}
-	app.Rpc("yal-test2", &testhandler2{})
+	app.RegisterRpcService("yal-test2", &testhandler2{})
 	app.Start()
   
 4、首先构建一个连接同一个etcd的app，然后根据服务名和集群名来调用：
 
 	app := eapp.NewApp()
-	res, err := app.GetContainer().GetRpcInvoker().
-		Request("",
+	res, err := app.GetContainer().
+		RpcRequest("",
 			"yal-test",
 			map[string]string{},
 			map[string]interface{}{
@@ -65,8 +67,8 @@
 	if err != nil {
 		app.GetContainer().Errorf("err::%v", err)
 	}
-	res2, err := app.GetContainer().GetRpcInvoker().
-		Request("default",
+	res2, err := app.GetContainer().
+		RpcRequest("default",
 			"yal-test2",
 			map[string]string{},
 			map[string]interface{}{
@@ -75,3 +77,35 @@
 			}, true)
 	fmt.Println("res:::::", res)
 	fmt.Println("res2:::::", res2)
+	
+	
+## MQC服务器构建示例
+1、编写mqc消费服务
+	type testMqcHandler struct {
+		c component.Container
+	}
+
+	func NewMqcHandler(c component.Container) *testMqcHandler {
+		return &testMqcHandler{c: c}
+	}
+
+	func (t *testMqcHandler) HandleMessage(msg *nsq.Message) error {
+		t.c.Warn("这是消息:::::", string(msg.Body))
+		return nil
+	}
+2、构建app注册消息服务
+	app := app.NewApp(
+		app.WithMqcServer(),
+	)
+	app.RegisterMqcService("yangal", "cha1", NewMqcHandler(app.GetContainer()))
+	app.Start()
+	
+3、发送消息
+	myapp := app.NewApp(
+		app.WithMqcServer(),
+	)
+
+	myapp.GetContainer().Send("yangal", map[string]interface{}{
+		"name": "yangal",
+	})
+	
