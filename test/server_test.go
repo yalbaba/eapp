@@ -12,7 +12,7 @@ import (
 
 func TestServer(t *testing.T) {
 	app := app.NewApp(
-		//app.WithRpcServer(),
+		app.WithRpcServer(),
 		app.WithMqcServer(),
 	)
 
@@ -33,7 +33,7 @@ func NewMqcHandler(c component.Container) *testMqcHandler {
 	return &testMqcHandler{c: c}
 }
 
-func (t *testMqcHandler) HandleMessage(msg *nsq.Message) error {
+func (t *testMqcHandler) Receive(msg *nsq.Message) error {
 	t.c.Warn("这是消息:::::", string(msg.Body))
 	return nil
 }

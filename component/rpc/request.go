@@ -7,12 +7,11 @@ import (
 	"fmt"
 )
 
-//---------------接口------------------
-type IRequest interface {
+type IRequest interface { //服务端实现的rpc代理请求接口
 	Handle(ctx context.Context, header map[string]string, input map[string]interface{}) (interface{}, error)
 }
 
-//---------------接口------------------
+//---------------以下是实现------------------
 
 type RequestService struct {
 	Servers map[string]IRequest

@@ -15,12 +15,12 @@ import (
 	"time"
 )
 
-//---------------接口------------------
-type RpcInvoker interface {
+type RpcInvoker interface { //服务端要实现的RPC组件
 	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error)
+	Close()
 }
 
-//---------------接口------------------
+//---------------以下是实现------------------
 
 type Invoker struct {
 	conf *global_config.Config
@@ -138,5 +138,13 @@ func (i *Invoker) getBalancer(mod int8, lb naming.Resolver) grpc.Balancer {
 		return random.Random(lb)
 	default:
 		return grpc.RoundRobin(lb)
+	}
+}
+
+func (i *Invoker) Close() {
+	i.RLock()
+	defer i.RUnlock()
+	for _, conn := range i.connPool {
+		conn.Close()
 	}
 }

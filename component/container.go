@@ -1,14 +1,12 @@
 package component
 
 import (
+	"eapp/component/mqc"
 	"eapp/component/rpc"
 	"eapp/global_config"
 	"eapp/logger"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
-
-	//jsoniter "github.com/json-iterator/go"
-	"github.com/nsqio/go-nsq"
 )
 
 //给各个服务器使用的公共组件
@@ -30,9 +28,10 @@ type IComponent interface {
 	Close()
 }
 
+//-----------自定义的框架容器实现-----------
 type component struct {
-	RpcInvoker  rpc.RpcInvoker
-	MqcProducer *nsq.Producer
+	RpcInvoker  rpc.RpcInvoker //RPC组件（可以集成任何mq中中间件）
+	MqcProducer mqc.MqcInvoker //MQC组件（可以集成任何mq中中间件）
 	Num         int
 
 	logger.ILogger
@@ -45,24 +44,17 @@ func NewComponent(l logger.ILogger) IComponent {
 }
 
 func (c *component) NewMqcProducer() {
-	p, err := nsq.NewProducer(global_config.Conf.MqcService.Host, nsq.NewConfig())
-	if err != nil {
-		panic(fmt.Errorf("创建nsq服务失败,err:%v", err))
-		return
-	}
-	c.MqcProducer = p
+	c.MqcProducer = mqc.NewNsqInvoker(global_config.Conf.MqcService.Host)
 }
 
 func (c *component) NewRpcInvoker() {
 	c.RpcInvoker = rpc.NewRpcInvoker(global_config.Conf)
 }
 
-//Rpc调用
 func (c *component) RpcRequest(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error) {
 	return c.RpcInvoker.Request(cluster, service, header, input, failFast)
 }
 
-//发送消息
 func (c *component) Send(topic string, body map[string]interface{}) error {
 	b, err := jsoniter.Marshal(body)
 	if err != nil {
@@ -74,4 +66,10 @@ func (c *component) Send(topic string, body map[string]interface{}) error {
 
 func (c *component) Close() {
 	//关闭所有公共组件
+	if c.MqcProducer != nil {
+		c.MqcProducer.Close()
+	}
+	if c.RpcInvoker != nil {
+		c.RpcInvoker.Close()
+	}
 }
