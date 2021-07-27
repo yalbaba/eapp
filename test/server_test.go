@@ -30,11 +30,13 @@ type testMqcHandler struct {
 }
 
 func NewMqcHandler(c component.Container) *testMqcHandler {
-	return &testMqcHandler{c: c}
+	return &testMqcHandler{
+		c: c,
+	}
 }
 
-func (t *testMqcHandler) Receive(msg *nsq.Message) error {
-	t.c.Warn("这是消息:::::", string(msg.Body))
+func (t *testMqcHandler) HandleMessage(message *nsq.Message) error {
+	t.c.Warn("msg:::", string(message.Body))
 	return nil
 }
 

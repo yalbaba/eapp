@@ -36,6 +36,8 @@ func (m *MqcServer) Start() error {
 		if err != nil {
 			panic(err)
 		}
+
+		//添加nsq的消费者模块
 		c.AddHandler(v)
 
 		if err := c.ConnectToNSQD(global_config.Conf.MqcService.Host); err != nil { // 建立连接
