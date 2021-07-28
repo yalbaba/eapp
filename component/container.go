@@ -2,7 +2,9 @@ package component
 
 import (
 	"eapp/component/mqc"
+	"eapp/component/mqc/nsq"
 	"eapp/component/rpc"
+	"eapp/component/rpc/grpc"
 	"eapp/global_config"
 	"eapp/logger"
 	"fmt"
@@ -44,11 +46,11 @@ func NewComponent(l logger.ILogger) IComponent {
 }
 
 func (c *component) NewMqcProducer() {
-	c.MqcProducer = mqc.NewNsqInvoker(global_config.Conf.MqcService.Host)
+	c.MqcProducer = nsq.NewNsqInvoker(global_config.Conf.MqcService.Host)
 }
 
 func (c *component) NewRpcInvoker() {
-	c.RpcInvoker = rpc.NewRpcInvoker(global_config.Conf)
+	c.RpcInvoker = grpc.NewRpcInvoker(global_config.Conf)
 }
 
 func (c *component) RpcRequest(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error) {

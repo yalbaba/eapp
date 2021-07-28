@@ -9,10 +9,9 @@ import (
 type IServer interface {
 	Start() error
 	Stop()
-	RegisterService(service string, h interface{}) error
+	RegisterService(domain string, h interface{}) error //domain:任意的服务对象名称，rpc_server:服务名  mqc_server:topic名
 }
 
-//适配器模式
 type IServerResolver interface {
 	Resolve(c component.Container) IServer
 }

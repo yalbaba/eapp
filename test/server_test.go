@@ -4,7 +4,7 @@ import (
 	"context"
 	"eapp/app"
 	"eapp/component"
-	"eapp/component/rpc"
+	"eapp/component/rpc/grpc"
 	"fmt"
 	"github.com/nsqio/go-nsq"
 	"testing"
@@ -48,11 +48,11 @@ type testhandler2 struct {
 	c component.Container
 }
 
-func NewHandler(c component.Container) rpc.IRequest {
+func NewHandler(c component.Container) grpc.RpcHandler {
 	return &testhandler{c: c}
 }
 
-func NewHandler2(c component.Container) rpc.IRequest {
+func NewHandler2(c component.Container) grpc.RpcHandler {
 	return &testhandler2{c: c}
 }
 

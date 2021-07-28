@@ -1,4 +1,4 @@
-package mqc
+package nsq
 
 import (
 	"fmt"
@@ -6,12 +6,6 @@ import (
 	"sync"
 )
 
-type MqcInvoker interface { //服务端要实现的mqc组件
-	Publish(topic string, body []byte) error
-	Close()
-}
-
-//---------以下是实现-----------
 type NsqInvoker struct {
 	sync.RWMutex
 	producer *nsq.Producer

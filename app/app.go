@@ -6,8 +6,6 @@ import (
 	"eapp/logger"
 	"eapp/logger/zap"
 	"eapp/servers"
-	_ "eapp/servers/mqc"
-	_ "eapp/servers/rpc"
 	"os"
 	"os/signal"
 	"sync"
@@ -21,6 +19,7 @@ type IApp interface {
 	RegisterMqcService(topic, channel string, sc interface{}) error
 }
 
+//---------------以下为实现-----------------
 type App struct {
 	c       component.IComponent
 	conf    *AppConfigs
@@ -72,7 +71,6 @@ func (a *App) Start() error {
 
 	a.c.Warn("服务器启动中...")
 
-	//开启所有服务器
 	for _, server := range a.servers {
 		err := server.Start()
 		if err != nil {
@@ -80,7 +78,6 @@ func (a *App) Start() error {
 		}
 	}
 
-	//监听信号
 	signalCh := make(chan os.Signal, 1)
 	closeCh := make(chan bool)
 	signal.Notify(signalCh, os.Interrupt, os.Kill)
@@ -91,7 +88,7 @@ func (a *App) Start() error {
 			closeCh <- true
 		}
 	}()
-	<-closeCh //阻塞进程
+	<-closeCh
 
 	return nil
 }

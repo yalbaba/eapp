@@ -1,4 +1,4 @@
-package rpc
+package grpc
 
 import (
 	"eapp/global_config"

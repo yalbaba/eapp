@@ -1,8 +1,9 @@
-package rpc
+package grpc
 
 import (
 	"context"
 	"eapp/balancer/random"
+	"eapp/component/rpc"
 	"eapp/global_config"
 	"eapp/pb"
 	"eapp/registry/etcd"
@@ -15,20 +16,13 @@ import (
 	"time"
 )
 
-type RpcInvoker interface { //服务端要实现的RPC组件
-	Request(cluster, service string, header map[string]string, input map[string]interface{}, failFast bool) (interface{}, error)
-	Close()
-}
-
-//---------------以下是实现------------------
-
 type Invoker struct {
 	conf *global_config.Config
 	sync.RWMutex
 	connPool map[string]*grpc.ClientConn //存放rpc客户端的连接池
 }
 
-func NewRpcInvoker(conf *global_config.Config) RpcInvoker {
+func NewRpcInvoker(conf *global_config.Config) rpc.RpcInvoker {
 	return &Invoker{
 		conf:     conf,
 		connPool: make(map[string]*grpc.ClientConn),
@@ -147,4 +141,40 @@ func (i *Invoker) Close() {
 	for _, conn := range i.connPool {
 		conn.Close()
 	}
+}
+
+//统一的rpc请求入口
+type RequestService struct {
+	Servers map[string]RpcHandler
+}
+
+func (r *RequestService) Request(ctx context.Context, in *pb.RequestContext) (*pb.ResponseContext, error) {
+	if _, ok := r.Servers[in.Service]; !ok {
+		return &pb.ResponseContext{
+			Status: 500,
+			Result: "服务未注册",
+		}, fmt.Errorf("服务未注册")
+	}
+
+	header := make(map[string]string)
+	if err := json.Unmarshal([]byte(in.Header), &header); err != nil {
+		return nil, err
+	}
+
+	input := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(in.Input), &input); err != nil {
+		return nil, err
+	}
+	resp, err := r.Servers[in.Service].Handle(ctx, header, input)
+	if err != nil {
+		return &pb.ResponseContext{
+			Status: 500,
+			Result: resp.(string),
+		}, err
+	}
+
+	return &pb.ResponseContext{
+		Status: 500,
+		Result: resp.(string),
+	}, nil
 }

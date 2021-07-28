@@ -1,8 +1,8 @@
-package mqc
+package nsq
 
 import (
 	"eapp/component"
-	"eapp/component/mqc"
+	app_nsq "eapp/component/mqc/nsq"
 	"eapp/consts"
 	"eapp/global_config"
 	"eapp/servers"
@@ -11,8 +11,9 @@ import (
 	"sync"
 )
 
+//接入nsq
 type MqcServer struct {
-	services  map[string]mqc.MqcHandler
+	services  map[string]app_nsq.MqcHandler
 	consumers []*nsq.Consumer
 	c         component.Container
 	lock      sync.Mutex
@@ -21,7 +22,7 @@ type MqcServer struct {
 func NewMqcServer(c component.Container) *MqcServer {
 	return &MqcServer{
 		c:        c,
-		services: make(map[string]mqc.MqcHandler),
+		services: make(map[string]app_nsq.MqcHandler),
 	}
 }
 
@@ -32,12 +33,11 @@ func (m *MqcServer) Start() error {
 	for k, v := range m.services {
 		arr := strings.Split(k, "/")
 		m.lock.Lock()
-		c, err := nsq.NewConsumer(arr[0], arr[1], nsq.NewConfig()) // 新建一个消费者
+		c, err := nsq.NewConsumer(arr[0], arr[1], nsq.NewConfig())
 		if err != nil {
 			panic(err)
 		}
 
-		//添加nsq的消费者模块
 		c.AddHandler(v)
 
 		if err := c.ConnectToNSQD(global_config.Conf.MqcService.Host); err != nil { // 建立连接
@@ -59,20 +59,20 @@ func (m *MqcServer) Stop() {
 }
 
 //service = "topic_name/channel_name"
-func (m *MqcServer) RegisterService(service string, h interface{}) error {
+func (m *MqcServer) RegisterService(topic string, h interface{}) error {
 
-	arr := strings.Split(service, "/")
-	if service == "" || len(arr) < 2 || arr[0] == "" || arr[1] == "" {
+	arr := strings.Split(topic, "/")
+	if topic == "" || len(arr) < 2 || arr[0] == "" || arr[1] == "" {
 		panic("服务名错误")
 		return nil
 	}
 
-	if _, ok := h.(mqc.MqcHandler); !ok {
+	if _, ok := h.(app_nsq.MqcHandler); !ok {
 		panic("消息服务类型错误")
 		return nil
 	}
 
-	m.services[service] = h.(mqc.MqcHandler)
+	m.services[topic] = h.(app_nsq.MqcHandler)
 
 	return nil
 }

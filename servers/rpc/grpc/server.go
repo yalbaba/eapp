@@ -1,8 +1,8 @@
-package rpc
+package grpc
 
 import (
 	"eapp/component"
-	"eapp/component/rpc"
+	app_grpc "eapp/component/rpc/grpc"
 	"eapp/consts"
 	"eapp/global_config"
 	"eapp/pb"
@@ -31,6 +31,7 @@ var (
 	SRV_TP_WEB   = "web"
 )
 
+//接入grpc
 type RpcServer struct {
 	c        component.Container
 	rpc      *grpc.Server
@@ -39,7 +40,7 @@ type RpcServer struct {
 	running  string
 	services map[string]string //服务的地址存放集合
 	host     string
-	servers  map[string]rpc.IRequest //存放服务的集合
+	servers  map[string]app_grpc.RpcHandler
 }
 
 func NewRpcServer(c component.Container) (servers.IServer, error) {
@@ -84,7 +85,7 @@ func NewRpcServer(c component.Container) (servers.IServer, error) {
 		registry: r,
 		conf:     conf,
 		services: make(map[string]string),
-		servers:  make(map[string]rpc.IRequest),
+		servers:  make(map[string]app_grpc.RpcHandler),
 		c:        c,
 	}
 	return e, nil
@@ -93,7 +94,6 @@ func NewRpcServer(c component.Container) (servers.IServer, error) {
 func (r *RpcServer) Start() error {
 	r.c.Debug("RPC服务器正在启动...")
 
-	//	注册服务到注册中心
 	for key, addr := range r.services {
 		if err := r.registry.Register(key, naming.Update{
 			Op:       naming.Add,
@@ -105,8 +105,7 @@ func (r *RpcServer) Start() error {
 		}
 	}
 
-	// 注册服务到rpc服务器
-	pb.RegisterRPCServer(r.rpc, &rpc.RequestService{Servers: r.servers})
+	pb.RegisterRPCServer(r.rpc, &app_grpc.RequestService{Servers: r.servers})
 
 	if err := r.run(); err != nil {
 		r.c.Errorf("服务器启动失败,err:%v", err)
@@ -121,7 +120,6 @@ func (r *RpcServer) Start() error {
 func (r *RpcServer) run() error {
 
 	r.running = ST_RUNNING
-	//协程内捕获错误
 	errChan := make(chan error, 1)
 	go func(ch chan error) {
 		lis, err := net.Listen("tcp", net.JoinHostPort(r.host, r.conf.RpcPort))
@@ -129,7 +127,6 @@ func (r *RpcServer) run() error {
 			ch <- fmt.Errorf("servers start error:%v", err)
 		}
 
-		//	开启rpc服务
 		if err := r.rpc.Serve(lis); err != nil {
 			ch <- fmt.Errorf("rpc serve error:%v", err)
 		}
@@ -168,16 +165,15 @@ func (r *RpcServer) RegisterService(service string, h interface{}) error {
 	}
 
 	r.services[r.conf.Cluster+"/"+service] = host + ":" + r.conf.RpcPort
-	if _, ok := h.(rpc.IRequest); !ok {
+	if _, ok := h.(app_grpc.RpcHandler); !ok {
 		panic("服务类型错误")
 		return nil
 	}
-	r.servers[service] = h.(rpc.IRequest)
+	r.servers[service] = h.(app_grpc.RpcHandler)
 
 	return nil
 }
 
-//适配器
 type rpcServerAdapter struct{}
 
 func (*rpcServerAdapter) Resolve(c component.Container) servers.IServer {
