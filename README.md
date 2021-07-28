@@ -80,7 +80,7 @@
 	
 	
 ## MQC服务器构建示例
-1、编写mqc消费服务
+1、编写mqc消费服务（框架的实现是nsq，所以这里实现nsq的处理接口）
 	type testMqcHandler struct {
 		c component.Container
 	}
@@ -93,6 +93,7 @@
 		t.c.Warn("这是消息:::::", string(msg.Body))
 		return nil
 	}
+	
 2、构建app注册消息服务
 	app := app.NewApp(
 		app.WithMqcServer(),
