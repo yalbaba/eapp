@@ -67,7 +67,7 @@ func (w *EtcdWatcher) Next() ([]*naming.Update, error) {
 //首次开启监控
 func (w *EtcdWatcher) firstNext() ([]*naming.Update, error) {
 	var updates []*naming.Update
-	resp, err := w.cli.Get(context.Background(), w.target, etcdv3.WithPrefix()) //todo 忘了加
+	resp, err := w.cli.Get(context.Background(), w.target, etcdv3.WithPrefix()) //最开始这里没加WithPrefix，导致查不到服务
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
