@@ -5,6 +5,11 @@
 
 1、编写自己的handler：
 
+	#实现本框架提供的RPC-Handler接口
+	type RpcHandler interface { //客户端实现的rpc处理请求接口
+		Handle(ctx context.Context, header map[string]string, input map[string]interface{}) (interface{}, error)
+	}
+
 	type testhandler struct {
 	}
 
@@ -81,6 +86,10 @@
 	
 ## MQC服务器构建示例
 1、编写mqc消费服务（框架的实现是nsq，所以这里实现nsq的处理接口）
+	type MqcHandler interface { //nsq的消息处理接口
+		HandleMessage(message *nsq.Message) error
+	}
+
 	type testMqcHandler struct {
 		c component.Container
 	}
