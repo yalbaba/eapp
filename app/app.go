@@ -6,6 +6,8 @@ import (
 	"eapp/logger"
 	"eapp/logger/zap"
 	"eapp/servers"
+	_ "eapp/servers/mqc/nsq"
+	_ "eapp/servers/rpc/grpc"
 	"os"
 	"os/signal"
 	"sync"
@@ -69,7 +71,7 @@ func NewApp(opts ...Option) IApp {
 
 func (a *App) Start() error {
 
-	a.c.Warn("服务器启动中...")
+	a.c.Debug("服务器启动中...")
 
 	for _, server := range a.servers {
 		err := server.Start()

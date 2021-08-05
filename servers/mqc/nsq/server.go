@@ -47,7 +47,7 @@ func (m *MqcServer) Start() error {
 		m.lock.Unlock()
 	}
 
-	m.c.Debug("MQC服务器启动成功...")
+	m.c.Debug("MQC服务器启动成功")
 	return nil
 }
 

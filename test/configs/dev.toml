@@ -1,6 +1,6 @@
 
 [registry]
-end_points = ["127.0.0.1:2389"]
+end_points = ["127.0.0.1:2389"] #注册中心的地址
 user_name = ""
 password = ""
 register_timeout = 10
@@ -10,8 +10,7 @@ ttl = 8
 cluster = "default"
 port = "9091"
 rpc_timeout = 5
-#10:无权重轮询，20:无权重随机
-balance_mod = 10
+balance_mod = 10 #10:无权重轮询，20:无权重随机
 
 [mqc_service]
-host = "127.0.0.1:4150"
+host = "127.0.0.1:4150" #消息中间件的地址

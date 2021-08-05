@@ -4,9 +4,8 @@ package pb;
 
 message RequestContext{
     string service=1; //服务名称
-    string method=2;  //请求方法,参考 http method
-    string input=3; //请求参数
-    string header=4;
+    string input=2; //请求参数
+    string header=3;
 }
 message ResponseContext{
     int32 status=1; //状态码

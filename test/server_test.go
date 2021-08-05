@@ -16,11 +16,8 @@ func TestServer(t *testing.T) {
 		app.WithMqcServer(),
 	)
 
-	//err := app.RegisterRpcService("yal-test", NewHandler(app.GetContainer()))
-	//if err != nil {
-	//	panic(err)
-	//}
-	//app.RegisterRpcService("yal-test2", NewHandler2(app.GetContainer()))
+	_ = app.RegisterRpcService("yal-test", NewHandler(app.GetContainer()))
+	_ = app.RegisterRpcService("yal-test2", NewHandler2(app.GetContainer()))
 	app.RegisterMqcService("yangal", "cha1", NewMqcHandler(app.GetContainer()))
 	app.Start()
 }

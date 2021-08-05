@@ -112,7 +112,7 @@ func (r *RpcServer) Start() error {
 		return err
 	}
 
-	r.c.Debug("RPC服务器启动成功...")
+	r.c.Debugf("RPC服务器启动成功，addr->[ :%s ]", r.conf.RpcPort)
 
 	return nil
 }
