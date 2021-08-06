@@ -11,15 +11,15 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	app := app.NewApp(
+	a := app.NewApp(
 		app.WithRpcServer(),
-		app.WithMqcServer(),
+		//app.WithMqcServer(),
 	)
 
-	_ = app.RegisterRpcService("yal-test", NewHandler(app.GetContainer()))
-	_ = app.RegisterRpcService("yal-test2", NewHandler2(app.GetContainer()))
-	app.RegisterMqcService("yangal", "cha1", NewMqcHandler(app.GetContainer()))
-	app.Start()
+	_ = a.RegisterRpcService("yal-test", NewHandler(a.GetContainer()))
+	_ = a.RegisterRpcService("yal-test2", NewHandler2(a.GetContainer()))
+	//_ = app.RegisterMqcService("yangal", "cha1", NewMqcHandler(app.GetContainer()))
+	_ = a.Start()
 }
 
 type testMqcHandler struct {

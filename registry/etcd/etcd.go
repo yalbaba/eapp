@@ -165,6 +165,10 @@ func (r *EtcdRegistry) Close() error {
 	return r.cli.Close()
 }
 
+type Resolver interface { //注册中心要实现的服务解析接口
+	Resolve(target string) (naming.Watcher, error)
+}
+
 /*
 target = /cluster/service
 */

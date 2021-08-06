@@ -60,7 +60,9 @@
   
 4、首先构建一个连接同一个etcd的app，然后根据服务名和集群名来调用：
 
-	app := eapp.NewApp()
+	app := eapp.NewApp(
+	    app.WithRpcServer(),  //rpc客户端也必须加这个参数
+	)
 	res, err := app.GetContainer().
 		RpcRequest("",
 			"yal-test",

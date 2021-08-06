@@ -7,8 +7,10 @@ import (
 )
 
 func TestRpc(t *testing.T) {
-	app := app.NewApp()
-	res, err := app.GetContainer().RpcRequest("",
+	a := app.NewApp(
+		app.WithRpcServer(),
+	)
+	res, err := a.GetContainer().RpcRequest("default",
 		"yal-test",
 		map[string]string{},
 		map[string]interface{}{
@@ -16,9 +18,9 @@ func TestRpc(t *testing.T) {
 			"name": "yyy",
 		}, true)
 	if err != nil {
-		app.GetContainer().Errorf("err::%v", err)
+		a.GetContainer().Errorf("err::%v", err)
 	}
-	res2, err := app.GetContainer().RpcRequest("default",
+	res2, err := a.GetContainer().RpcRequest("default",
 		"yal-test2",
 		map[string]string{},
 		map[string]interface{}{

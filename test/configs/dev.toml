@@ -10,7 +10,7 @@ ttl = 8
 cluster = "default"
 port = "9091"
 rpc_timeout = 5
-balance_mod = 10 #10:无权重轮询，20:无权重随机
+balance_mod = 20 #10:无权重轮询，20:无权重随机
 
 [mqc_service]
 host = "127.0.0.1:4150" #消息中间件的地址

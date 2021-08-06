@@ -283,6 +283,7 @@ func (r *random) Get(ctx context.Context, opts grpc.BalancerGetOptions) (addr gr
 func (r *random) Notify() <-chan []grpc.Address {
 	return r.addrCh
 }
+
 func (r *random) Close() error {
 	r.Lock()
 	defer r.Unlock()
