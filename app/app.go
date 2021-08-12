@@ -3,11 +3,15 @@ package app
 import (
 	"eapp/component"
 	"eapp/consts"
+	"eapp/global_config"
 	"eapp/logger"
 	"eapp/logger/zap"
 	"eapp/servers"
 	_ "eapp/servers/mqc/nsq"
 	_ "eapp/servers/rpc/grpc"
+	"flag"
+	"github.com/BurntSushi/toml"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -22,6 +26,9 @@ type IApp interface {
 }
 
 //---------------以下为实现-----------------
+
+var configPath string
+
 type App struct {
 	c       component.IComponent
 	conf    *AppConfigs
@@ -31,6 +38,9 @@ type App struct {
 }
 
 func NewApp(opts ...Option) IApp {
+
+	initConfig()
+
 	conf := &AppConfigs{
 		ServerTypes: make(map[consts.ServerType]bool),
 	}
@@ -100,6 +110,24 @@ func (a *App) Stop() {
 	for _, server := range a.servers {
 		server.Stop()
 	}
+}
+
+//命令行参数解析配置文件
+func initConfig() {
+
+	flag.StringVar(&configPath, "c", "", "服务器配置文件路径")
+	flag.Parse()
+
+	if configPath == "" {
+		// log.Warn("未指定配置文件路径! 将使用 ./configs/config_dev.toml 配置文件加载程序")
+
+		configPath = "./configs/config_dev.toml"
+	}
+
+	if _, err := toml.DecodeFile(configPath, global_config.Conf); err != nil {
+		log.Panic(err)
+	}
+
 }
 
 func (a *App) GetContainer() component.Container {

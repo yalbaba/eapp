@@ -1,19 +1,8 @@
 package global_config
 
-import (
-	"github.com/BurntSushi/toml"
-)
-
 var (
 	Conf = &Config{}
 )
-
-func init() {
-	_, err := toml.DecodeFile("configs/dev.toml", Conf)
-	if err != nil {
-		panic(err)
-	}
-}
 
 type Config struct {
 	Registry    *Registry    `toml:"registry"`
